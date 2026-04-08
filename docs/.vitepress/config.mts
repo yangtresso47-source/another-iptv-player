@@ -31,10 +31,12 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "Download", link: "/download" },
       { text: "Support", link: "/information" },
+      { text: "Native Blueprint", link: "/native-app-blueprint" },
     ],
     sidebar: [
       { text: "Information", link: "/information" },
       { text: "FAQ", link: "/faq" },
+      { text: "Native App Blueprint", link: "/native-app-blueprint" },
     ],
     socialLinks: [
       {
