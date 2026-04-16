@@ -191,7 +191,7 @@ private struct SeriesPlaybackSession: Equatable {
         title = {
             let num = episode.episodeNum.map { "\($0). " } ?? ""
             let raw = episode.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let t = raw.isEmpty ? "Bölüm" : raw
+            let t = raw.isEmpty ? L("detail.episode_fallback") : raw
             return num + t
         }()
         subtitle = seriesTitle

@@ -87,6 +87,8 @@ final class MPVPlayerContainerViewController: UIViewController {
   }
 
   private func setupPiP() {
+    guard pipEnabled else { return }
+    guard pipController == nil else { return }
     guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
     let source = AVPictureInPictureController.ContentSource(
       sampleBufferDisplayLayer: displayView.sampleBufferDisplayLayer,
@@ -146,9 +148,30 @@ final class MPVPlayerContainerViewController: UIViewController {
     appLifecycleObservers = [obs]
   }
 
+  var pipEnabled: Bool = true {
+    didSet {
+      guard oldValue != pipEnabled else { return }
+      if pipEnabled {
+        setupPiP()
+      } else {
+        pipController?.stopPictureInPicture()
+        pipController = nil
+      }
+    }
+  }
+  var continuePlayingInBackground: Bool = true
+
   private func autoPiPOnResignActive() {
     pendingResignPiPStart?.cancel()
     pendingBackgroundPiPStart?.cancel()
+
+    guard continuePlayingInBackground else {
+      mpvPlayer.pause()
+      return
+    }
+
+    guard pipEnabled else { return }
+
     schedulePiPAttempt(delay: 0.08, storeIn: &pendingResignPiPStart)
     schedulePiPAttempt(delay: 0.16, storeIn: &pendingBackgroundPiPStart)
   }
@@ -299,16 +322,22 @@ struct MPVPlayerPlaybackContainerView: UIViewControllerRepresentable {
   @ObservedObject var mpvPlayer: MPVPlayer
   var playbackBridge: VideoPlayerController?
   var manualPiPTrigger: Int
+  var pipEnabled: Bool
+  var continuePlayingInBackground: Bool
 
   func makeUIViewController(context: Context) -> MPVPlayerContainerViewController {
     let vc = MPVPlayerContainerViewController(mpvPlayer: mpvPlayer, playbackBridge: playbackBridge)
     vc.lastProcessedManualPiPTrigger = manualPiPTrigger
+    vc.pipEnabled = pipEnabled
+    vc.continuePlayingInBackground = continuePlayingInBackground
     vc.setVideoContentMode(playbackBridge?.aspectMode.viewportContentMode ?? .scaleAspectFit)
     return vc
   }
 
   func updateUIViewController(_ uiViewController: MPVPlayerContainerViewController, context: Context) {
     uiViewController.playbackBridge = playbackBridge
+    uiViewController.pipEnabled = pipEnabled
+    uiViewController.continuePlayingInBackground = continuePlayingInBackground
     uiViewController.setVideoContentMode(playbackBridge?.aspectMode.viewportContentMode ?? .scaleAspectFit)
     uiViewController.processManualPiPTrigger(manualPiPTrigger)
   }

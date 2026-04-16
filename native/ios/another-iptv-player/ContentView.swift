@@ -8,7 +8,9 @@ struct ContentView: View {
     init() {
         _playlists = Query(PlaylistRequest(), in: \.appDatabase)
     }
-    @State private var showingAddPlaylist = false
+    @State private var showingTypePicker = false
+    @State private var showingAddXtreamPlaylist = false
+    @State private var showingAddM3UPlaylist = false
     @State private var playlistToEdit: Playlist?
     @State private var offsetsToDelete: IndexSet?
     @State private var showingDeleteAlert = false
@@ -21,10 +23,21 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             if let playlist = selectedPlaylist {
-                DashboardView(playlist: playlist) {
-                    UserDefaults.standard.removeObject(forKey: lastPlaylistKey)
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        selectedPlaylist = nil
+                Group {
+                    if playlist.kind == .m3u {
+                        M3UDashboardView(playlist: playlist) {
+                            UserDefaults.standard.removeObject(forKey: lastPlaylistKey)
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                selectedPlaylist = nil
+                            }
+                        }
+                    } else {
+                        DashboardView(playlist: playlist) {
+                            UserDefaults.standard.removeObject(forKey: lastPlaylistKey)
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                selectedPlaylist = nil
+                            }
+                        }
                     }
                 }
                 .transition(.asymmetric(
@@ -40,33 +53,46 @@ struct ContentView: View {
                             playlistList
                         }
                     }
-                    .navigationTitle("Playlists")
+                    .navigationTitle(L("playlists.title"))
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             Button {
-                                showingAddPlaylist = true
+                                showingTypePicker = true
                             } label: {
                                 Image(systemName: "plus")
                             }
                         }
                     }
-                    .sheet(isPresented: $showingAddPlaylist) {
+                    .sheet(isPresented: $showingTypePicker) {
+                        PlaylistTypeSelectionView(
+                            onSelectXtream: { showingAddXtreamPlaylist = true },
+                            onSelectM3U: { showingAddM3UPlaylist = true }
+                        )
+                    }
+                    .sheet(isPresented: $showingAddXtreamPlaylist) {
                         AddPlaylistView()
                     }
-                    .sheet(item: $playlistToEdit) { playlist in
-                        AddPlaylistView(editingPlaylist: playlist)
+                    .sheet(isPresented: $showingAddM3UPlaylist) {
+                        AddM3UPlaylistView()
                     }
-                    .alert("Playlist'i Sil", isPresented: $showingDeleteAlert) {
-                        Button("Sil", role: .destructive) {
+                    .sheet(item: $playlistToEdit) { playlist in
+                        if playlist.kind == .m3u {
+                            AddM3UPlaylistView(editingPlaylist: playlist)
+                        } else {
+                            AddPlaylistView(editingPlaylist: playlist)
+                        }
+                    }
+                    .alert(L("playlists.delete.title"), isPresented: $showingDeleteAlert) {
+                        Button(L("common.delete"), role: .destructive) {
                             if let offsets = offsetsToDelete {
                                 performDelete(offsets: offsets)
                             }
                         }
-                        Button("İptal", role: .cancel) {
+                        Button(L("common.cancel"), role: .cancel) {
                             offsetsToDelete = nil
                         }
                     } message: {
-                        Text("Bu playlist'i ve içindeki tüm içerikleri silmek istediğinize emin misiniz?")
+                        Text(L("playlists.delete.message"))
                     }
                 }
                 .transition(.asymmetric(
@@ -119,19 +145,19 @@ struct ContentView: View {
                 .frame(width: 80, height: 80)
                 .foregroundColor(.accentColor)
             
-            Text("No Playlists Found")
+            Text(L("playlists.empty.title"))
                 .font(.title2)
                 .fontWeight(.semibold)
-            
-            Text("Add your first IPTV playlist to start watching live TV, movies, and series.")
+
+            Text(L("playlists.empty.message"))
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
                 .padding(.horizontal)
-            
+
             Button {
-                showingAddPlaylist = true
+                showingTypePicker = true
             } label: {
-                Text("Add New Playlist")
+                Text(L("playlists.empty.add_button"))
                     .font(.headline)
                     .foregroundColor(.white)
                     .padding()
@@ -156,11 +182,22 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(playlist.name)
-                                        .font(.headline)
-                                    Text(playlist.serverURL)
+                                    HStack(spacing: 8) {
+                                        Text(playlist.name)
+                                            .font(.headline)
+                                        Text(playlist.kind == .m3u ? "M3U" : "Xtream")
+                                            .font(.caption2.weight(.semibold))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.accentColor.opacity(0.15))
+                                            .foregroundColor(.accentColor)
+                                            .cornerRadius(4)
+                                    }
+                                    Text(playlist.serverURL.isEmpty ? L("playlists.local_file") : playlist.serverURL)
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
@@ -175,7 +212,7 @@ struct ContentView: View {
                         Button {
                             playlistToEdit = playlist
                         } label: {
-                            Label("Edit", systemImage: "pencil")
+                            Label(L("common.edit"), systemImage: "pencil")
                         }
                         .tint(.orange)
                     }

@@ -4,23 +4,27 @@ import GRDB
 struct PlaylistSettingsView: View {
     let playlist: Playlist
     let onDismiss: () -> Void
-    
+
     @State private var authResponse: XtreamAuthResponse?
     @State private var isLoading = true
     @State private var errorMessage: String?
-    
+
     @State private var isPasswordRevealed = false
-    
+
     @State private var isSyncing = false
     @State private var progressMessage: String?
-    
+
     @State private var liveCount: Int = 0
     @State private var vodCount: Int = 0
     @State private var seriesCount: Int = 0
     @State private var historyCount: Int = 0
-    
+
     @State private var filterAdultContent: Bool
     @State private var showClearHistoryAlert = false
+
+    @AppStorage("player.pipEnabled") private var pipEnabled = true
+    @AppStorage("player.continuePlayingInBackground") private var continuePlayingInBackground = true
+    @AppStorage("player.speedUpOnLongPress") private var speedUpOnLongPress = true
     
     init(playlist: Playlist, onDismiss: @escaping () -> Void) {
         self.playlist = playlist
@@ -30,30 +34,105 @@ struct PlaylistSettingsView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("Playlist Bilgileri")) {
+            Section {
+                Button {
+                    onDismiss()
+                } label: {
+                    HStack {
+                        Text(L("settings.back_to_list"))
+                        Spacer()
+                        Image(systemName: "list.bullet.rectangle")
+                    }
+                }
+
+                Button(action: {
+                    Task { await syncContents() }
+                }) {
+                    HStack {
+                        Text(L("settings.refresh_all"))
+                        Spacer()
+                        if isSyncing {
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(isSyncing)
+
+                if isSyncing, let msg = progressMessage {
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            LanguagePickerSection()
+
+            // — Player Settings —
+            Section(header: Text(L("settings.player.title"))) {
+                Toggle(isOn: $pipEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("settings.player.pip.title"))
+                        Text(L("settings.player.pip.desc"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: $continuePlayingInBackground) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("settings.player.background.title"))
+                        Text(L("settings.player.background.desc"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle(isOn: $speedUpOnLongPress) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L("settings.player.longpress.title"))
+                        Text(L("settings.player.longpress.desc"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            // — Playlist & Abonelik Bilgileri (birleşik) —
+            Section(header: HStack {
+                Text(L("settings.playlist.info.title"))
+                Spacer()
+                if authResponse?.userInfo != nil {
+                    Button(action: {
+                        Task { await fetchAuthInfo() }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .textCase(.none)
+                }
+            }) {
                 HStack {
-                    Text("İsim")
+                    Text(L("settings.playlist.name"))
                     Spacer()
                     Text(playlist.name)
                         .foregroundColor(.secondary)
                 }
-                
+
                 HStack {
-                    Text("Sunucu URL")
+                    Text(L("settings.playlist.server_url"))
                     Spacer()
                     Text(playlist.serverURL)
                         .foregroundColor(.secondary)
                 }
-                
+
                 HStack {
-                    Text("Kullanıcı Adı")
+                    Text(L("settings.playlist.username"))
                     Spacer()
                     Text(playlist.username)
                         .foregroundColor(.secondary)
                 }
-                
+
                 HStack {
-                    Text("Şifre")
+                    Text(L("settings.playlist.password"))
                     Spacer()
                     if isPasswordRevealed {
                         Text(playlist.password)
@@ -62,7 +141,7 @@ struct PlaylistSettingsView: View {
                         Text(String(repeating: "•", count: playlist.password.count))
                             .foregroundColor(.secondary)
                     }
-                    
+
                     Button(action: {
                         isPasswordRevealed.toggle()
                     }) {
@@ -71,110 +150,104 @@ struct PlaylistSettingsView: View {
                     }
                     .buttonStyle(BorderlessButtonStyle())
                 }
-            }
-            
-            if isLoading {
-                HStack {
-                    Spacer()
-                    ProgressView("Abonelik Bilgileri Yükleniyor...")
-                    Spacer()
-                }
-            } else if let error = errorMessage {
-                Section {
-                    Text("Bilgiler alınamadı: \(error)")
-                        .foregroundColor(.red)
-                    Button("Tekrar Dene") {
-                        Task { await fetchAuthInfo() }
-                    }
-                }
-            } else if let userInfo = authResponse?.userInfo {
-                Section(header: HStack {
-                    Text("Abonelik Bilgileri")
-                    Spacer()
-                    Button(action: {
-                        Task { await fetchAuthInfo() }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .textCase(.none)
-                }) {
+
+                if isLoading {
                     HStack {
-                        Text("Kalan Süre")
+                        Spacer()
+                        ProgressView(L("settings.playlist.fetching_info"))
+                        Spacer()
+                    }
+                } else if let error = errorMessage {
+                    Text(L("settings.playlist.info_error", error))
+                        .foregroundColor(.red)
+                    Button(L("common.try_again")) {
+                        Task { await fetchAuthInfo() }
+                    }
+                } else if let userInfo = authResponse?.userInfo {
+                    HStack {
+                        Text(L("settings.playlist.subscription"))
                         Spacer()
                         Text(calculateRemainingDays(expDate: userInfo.expDate))
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack {
-                        Text("Aktif Bağlantı")
+                        Text(L("settings.playlist.active_connection"))
                         Spacer()
-                        Text(userInfo.activeCons ?? "Bilinmiyor")
+                        Text(userInfo.activeCons ?? L("settings.playlist.unknown"))
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack {
-                        Text("Maksimum Bağlantı")
+                        Text(L("settings.playlist.max_connection"))
                         Spacer()
-                        Text(userInfo.maxConnections ?? "Sınırsız")
+                        Text(userInfo.maxConnections ?? L("settings.playlist.unlimited"))
                             .foregroundColor(.secondary)
                     }
                 }
-                
-                Section(header: Text("Sunucu Bilgileri")) {
-                    if let timeZone = authResponse?.serverInfo?.timezone {
-                        HStack {
-                            Text("Time Zone")
-                            Spacer()
-                            Text(timeZone)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    if let message = userInfo.message, !message.isEmpty {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Server Message")
-                            Text(message)
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
-                Section(header: Text("İçerik İstatistikleri")) {
+            }
+
+            // — İçerik İstatistikleri + Sunucu Bilgileri —
+            if authResponse?.userInfo != nil {
+                Section(header: Text(L("settings.stats.title"))) {
                     HStack {
-                        Text("Canlı Yayın Sayısı")
+                        Text(L("settings.stats.live_count"))
                         Spacer()
                         Text("\(liveCount)")
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack {
-                        Text("Film Sayısı")
+                        Text(L("settings.stats.movie_count"))
                         Spacer()
                         Text("\(vodCount)")
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack {
-                        Text("Dizi Sayısı")
+                        Text(L("settings.stats.series_count"))
                         Spacer()
                         Text("\(seriesCount)")
                             .foregroundColor(.secondary)
                     }
-                    
+
                     HStack {
-                        Text("İzleme Geçmişi")
+                        Text(L("settings.stats.history_count"))
                         Spacer()
-                        Text("\(historyCount) öğe")
+                        Text(L("settings.stats.history_items_format", historyCount))
                             .foregroundColor(.secondary)
                     }
                 }
-                
-                Section(header: Text("İçerik Yönetimi")) {
+
+                if authResponse?.serverInfo?.timezone != nil
+                    || (authResponse?.userInfo?.message.map { !$0.isEmpty } ?? false) {
+                    Section(header: Text(L("settings.server.title"))) {
+                        if let timeZone = authResponse?.serverInfo?.timezone {
+                            HStack {
+                                Text(L("settings.server.timezone"))
+                                Spacer()
+                                Text(timeZone)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        if let message = authResponse?.userInfo?.message, !message.isEmpty {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(L("settings.server.message"))
+                                Text(message)
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                // — İçerik Yönetimi —
+                Section(header: Text(L("settings.content_management.title"))) {
                     Toggle(isOn: $filterAdultContent) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Yetişkin İçerikleri Filtrele")
-                            Text("Değişiklik sonrası içeriklerin yeniden indirilmesi gerekir")
+                            Text(L("settings.filter_adult.title"))
+                            Text(L("settings.filter_adult.xtream_desc"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -183,57 +256,50 @@ struct PlaylistSettingsView: View {
                         Task { await saveFilterSetting(newValue: newValue) }
                     }
 
-                    Button(action: {
-                        Task { await syncContents() }
-                    }) {
-                        HStack {
-                            Text("Tüm İçerikleri Yeniden İndir")
-                            Spacer()
-                            if isSyncing {
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(isSyncing)
-
-                    if isSyncing, let msg = progressMessage {
-                        Text(msg)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
                     Button(role: .destructive) {
                         showClearHistoryAlert = true
                     } label: {
                         HStack {
-                            Text("İzleme Geçmişini Temizle")
+                            Text(L("history.clear.button_entry"))
                             Spacer()
                             Image(systemName: "trash")
                         }
                     }
                     .disabled(historyCount == 0)
                 }
-                
-                Section(header: Text("Sistem")) {
-                    Button {
-                        onDismiss()
-                    } label: {
-                        HStack {
-                            Text("Playlist Listesine Dön")
-                            Spacer()
-                            Image(systemName: "list.bullet.rectangle")
+            }
+
+            Section(header: Text(L("settings.about.title"))) {
+                HStack {
+                    Text(L("settings.about.version"))
+                    Spacer()
+                    Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-")
+                        .foregroundColor(.secondary)
+                }
+
+                Link(destination: URL(string: "https://github.com/bsogulcan/another-iptv-player")!) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(L("settings.about.github.title"))
+                            Text(L("settings.about.github.desc"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
         }
-        .alert("Geçmişi Sil", isPresented: $showClearHistoryAlert) {
-            Button("İptal", role: .cancel) { }
-            Button("Evet, Sil", role: .destructive) {
+        .alert(L("history.clear.title"), isPresented: $showClearHistoryAlert) {
+            Button(L("common.cancel"), role: .cancel) { }
+            Button(L("common.confirm_delete_yes"), role: .destructive) {
                 Task { await clearHistory() }
             }
         } message: {
-            Text("Tüm izleme geçmişiniz (devam et, son izlenenler) kalıcı olarak silinecektir. Emin misiniz?")
+            Text(L("history.clear.message.all"))
         }
         .task {
             await fetchAuthInfo()
@@ -301,24 +367,24 @@ struct PlaylistSettingsView: View {
     
     private func calculateRemainingDays(expDate: String?) -> String {
         guard let expDateStr = expDate, let timestamp = TimeInterval(expDateStr) else {
-            return "Sınırsız / Bilinmiyor"
+            return L("settings.playlist.unlimited_or_unknown")
         }
-        
+
         if timestamp == 0 {
-            return "Sınırsız"
+            return L("settings.playlist.unlimited")
         }
-        
+
         let displayDate = Date(timeIntervalSince1970: timestamp)
         let calendar = Calendar.current
         let components = calendar.dateComponents([.day], from: Date(), to: displayDate)
-        
+
         if let days = components.day {
             if days < 0 {
-                return "Süresi Dolmuş"
+                return L("settings.playlist.expired")
             }
-            return "\(days) Gün"
+            return L("common.days_format", days)
         }
-        return "Bilinmiyor"
+        return L("settings.playlist.unknown")
     }
     
     private func saveFilterSetting(newValue: Bool) async {
@@ -332,7 +398,7 @@ struct PlaylistSettingsView: View {
             await syncContents()
         } catch {
             await MainActor.run {
-                self.errorMessage = "Ayar kaydedilemedi: \(error.localizedDescription)"
+                self.errorMessage = L("misc.save_setting_error", error.localizedDescription)
             }
         }
     }
@@ -356,7 +422,7 @@ struct PlaylistSettingsView: View {
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = "İçerikler yenilenirken hata oluştu: \(error.localizedDescription)"
+                self.errorMessage = L("misc.refresh_error", error.localizedDescription)
                 self.isSyncing = false
                 self.progressMessage = nil
             }

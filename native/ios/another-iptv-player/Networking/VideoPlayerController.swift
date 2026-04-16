@@ -117,7 +117,7 @@ final class VideoPlayerController: ObservableObject {
 
   @Published var videoTracks: [TrackMenuOption] = []
   @Published var audioTracks: [TrackMenuOption] = []
-  @Published var subtitleTracks: [TrackMenuOption] = [TrackMenuOption(id: -1, title: "Kapalı")]
+  @Published var subtitleTracks: [TrackMenuOption] = [TrackMenuOption(id: -1, title: L("player.subtitle_off"))]
   @Published var currentVideoTrackId: Int = -1
   @Published var currentAudioTrackId: Int = -1
   @Published var currentSubtitleTrackId: Int = -1

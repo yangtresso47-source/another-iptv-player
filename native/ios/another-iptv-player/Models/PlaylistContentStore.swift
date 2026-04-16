@@ -109,13 +109,13 @@ final class PlaylistContentStore: ObservableObject {
             let needsSync = try await Self.needsNetworkBootstrap(playlistId: playlist.id)
             if needsSync {
                 isLoading = true
-                loadingMessage = "Hazırlanıyor..."
+                loadingMessage = L("phase.preparing")
                 try await syncFromNetworkReplacingLocal(playlist: playlist) { msg in
                     guard self.loadToken == token else { return }
                     self.loadingMessage = msg
                 }
                 guard loadToken == token else { return }
-                loadingMessage = "Liste hazırlanıyor..."
+                loadingMessage = L("phase.preparing_list")
             }
 
             // Faz 1: Sadece kategoriler (çok hızlı – genellikle < 5 ms)
@@ -279,7 +279,7 @@ final class PlaylistContentStore: ObservableObject {
 
     /// Ayarlar ekranı: aşamalı ilerleme mesajı ile tam yenileme.
     func syncFromNetworkReplacingLocal(playlist: Playlist, progress: @escaping (String) -> Void) async throws {
-        progress("Mevcut içerikler siliniyor...")
+        progress(L("phase.clearing_content"))
         let client = XtreamAPIClient(playlist: playlist)
         let pid = playlist.id
 
@@ -290,18 +290,18 @@ final class PlaylistContentStore: ObservableObject {
             try db.execute(sql: "DELETE FROM series WHERE playlistId = ?", arguments: [pid])
         }
 
-        progress("Kategoriler indiriliyor...")
+        progress(L("phase.fetch_categories"))
         let liveCats = try await client.getLiveCategories()
         let vodCats = try await client.getVODCategories()
         let seriesCats = try await client.getSeriesCategories()
 
-        progress("Canlı yayınlar indiriliyor...")
+        progress(L("phase.fetch_live"))
         let liveStreamsAPI = try await client.getLiveStreams()
 
-        progress("Filmler indiriliyor...")
+        progress(L("phase.fetch_movies"))
         let vods = try await client.getVODStreams()
 
-        progress("Diziler indiriliyor...")
+        progress(L("phase.fetch_series"))
         let series = try await client.getSeries()
 
         // Yetişkin içerik filtresi
@@ -310,33 +310,33 @@ final class PlaylistContentStore: ObservableObject {
         let adultVodCatIds   = filterAdult ? AdultContentFilter.adultCategoryIds(from: vodCats)    : []
         let adultSeriesCatIds = filterAdult ? AdultContentFilter.adultCategoryIds(from: seriesCats) : []
 
-        progress("Veritabanına kaydediliyor...")
+        progress(L("phase.save_db"))
         try await AppDatabase.shared.write { db in
             for (index, cat) in liveCats.enumerated() {
                 if filterAdult, let name = cat.categoryName, AdultContentFilter.isAdultCategoryName(name) { continue }
-                let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? "İsimsiz", parentId: cat.parentId, type: "live", sortIndex: index, playlistId: pid)
+                let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? L("content.unnamed"), parentId: cat.parentId, type: "live", sortIndex: index, playlistId: pid)
                 try dbCat.save(db)
             }
             for (index, cat) in vodCats.enumerated() {
                 if filterAdult, let name = cat.categoryName, AdultContentFilter.isAdultCategoryName(name) { continue }
-                let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? "İsimsiz", parentId: cat.parentId, type: "vod", sortIndex: index, playlistId: pid)
+                let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? L("content.unnamed"), parentId: cat.parentId, type: "vod", sortIndex: index, playlistId: pid)
                 try dbCat.save(db)
             }
             for (index, cat) in seriesCats.enumerated() {
                 if filterAdult, let name = cat.categoryName, AdultContentFilter.isAdultCategoryName(name) { continue }
-                let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? "İsimsiz", parentId: cat.parentId, type: "series", sortIndex: index, playlistId: pid)
+                let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? L("content.unnamed"), parentId: cat.parentId, type: "series", sortIndex: index, playlistId: pid)
                 try dbCat.save(db)
             }
 
             for (index, stream) in liveStreamsAPI.enumerated() {
                 if filterAdult, AdultContentFilter.isAdultLiveStream(stream, adultCategoryIds: adultLiveCatIds) { continue }
-                let dbStream = DBLiveStream(streamId: stream.id, name: stream.name ?? "İsimsiz", streamIcon: stream.streamIcon, epgChannelId: stream.epgChannelId, categoryId: stream.categoryId, sortIndex: index, playlistId: pid)
+                let dbStream = DBLiveStream(streamId: stream.id, name: stream.name ?? L("content.unnamed"), streamIcon: stream.streamIcon, epgChannelId: stream.epgChannelId, categoryId: stream.categoryId, sortIndex: index, playlistId: pid)
                 try dbStream.save(db)
             }
 
             for (index, stream) in vods.enumerated() {
                 if filterAdult, AdultContentFilter.isAdultVODStream(stream, adultCategoryIds: adultVodCatIds) { continue }
-                let dbVOD = DBVODStream(streamId: stream.id, name: stream.name ?? "İsimsiz", streamIcon: stream.streamIcon, categoryId: stream.categoryId, rating: stream.rating, containerExtension: stream.containerExtension, sortIndex: index, playlistId: pid)
+                let dbVOD = DBVODStream(streamId: stream.id, name: stream.name ?? L("content.unnamed"), streamIcon: stream.streamIcon, categoryId: stream.categoryId, rating: stream.rating, containerExtension: stream.containerExtension, sortIndex: index, playlistId: pid)
                 try dbVOD.save(db)
             }
 
@@ -344,7 +344,7 @@ final class PlaylistContentStore: ObservableObject {
                 if filterAdult, let cid = s.categoryId, adultSeriesCatIds.contains(cid) { continue }
                 let dbSeries = DBSeries(
                     seriesId: s.id,
-                    name: s.name ?? "İsimsiz",
+                    name: s.name ?? L("content.unnamed"),
                     cover: s.cover,
                     plot: s.plot,
                     cast: s.cast,

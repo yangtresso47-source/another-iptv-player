@@ -9,11 +9,11 @@ enum XtreamError: LocalizedError {
     
     var errorDescription: String? {
         switch self {
-        case .invalidURL(let url): return "Geçersiz veya hatalı URL: \(url)"
-        case .networkError(let error): return "Ağ hatası: \(error.localizedDescription)"
-        case .unauthenticated: return "Kullanıcı adı veya şifre hatalı."
-        case .decodingError(let error): return "Veri okunurken hata: \(error.localizedDescription)"
-        case .serverError(let status): return "Sunucu hatası: \(status)"
+        case .invalidURL(let url): return L("misc.xtream.invalid_url", url)
+        case .networkError(let error): return L("net.error.network", error.localizedDescription)
+        case .unauthenticated: return L("misc.xtream.auth_error")
+        case .decodingError(let error): return L("misc.xtream.decode_error", error.localizedDescription)
+        case .serverError(let status): return L("misc.xtream.server_error", status)
         }
     }
 }

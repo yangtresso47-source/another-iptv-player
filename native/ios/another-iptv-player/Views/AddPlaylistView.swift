@@ -36,15 +36,15 @@ struct AddPlaylistView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Playlist Information")) {
-                    TextField("Playlist Name (e.g., My IPTV)", text: $name)
+                Section(header: Text(L("add_playlist.section.info"))) {
+                    TextField(L("add_playlist.name_placeholder"), text: $name)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.words)
                         .focused($focusedField, equals: .name)
                         .submitLabel(.next)
                         .onSubmit { focusedField = .url }
-                    
-                    TextField("Server URL", text: $url)
+
+                    TextField(L("add_playlist.server_url"), text: $url)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -52,43 +52,43 @@ struct AddPlaylistView: View {
                         .submitLabel(.next)
                         .onSubmit { focusedField = .username }
                 }
-                
-                Section(header: Text("Credentials")) {
-                    TextField("Username", text: $username)
+
+                Section(header: Text(L("add_playlist.section.credentials"))) {
+                    TextField(L("add_playlist.username"), text: $username)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .focused($focusedField, equals: .username)
                         .submitLabel(.next)
                         .onSubmit { focusedField = .password }
-                    
-                    SecureField("Password", text: $password)
+
+                    SecureField(L("add_playlist.password"), text: $password)
                         .autocorrectionDisabled()
                         .focused($focusedField, equals: .password)
                         .submitLabel(.done)
                         .onSubmit { focusedField = nil }
                 }
 
-                Section(header: Text("İçerik Ayarları")) {
+                Section(header: Text(L("add_playlist.section.content_settings"))) {
                     Toggle(isOn: $filterAdultContent) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Yetişkin İçerikleri Filtrele")
-                            Text("XXX, 18+, yetişkin kategorileri ve is_adult içerikleri gizler")
+                            Text(L("add_playlist.filter_adult"))
+                            Text(L("add_playlist.filter_adult.desc"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
             }
-            .navigationTitle(editingPlaylist == nil ? "Add Playlist" : "Edit Playlist")
+            .navigationTitle(editingPlaylist == nil ? L("add_playlist.xtream.title_new") : L("add_playlist.xtream.title_edit"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(L("common.cancel")) {
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(L("common.save")) {
                         Task { await savePlaylist() }
                     }
                     .disabled(name.isEmpty || url.isEmpty || username.isEmpty || password.isEmpty || isLoading)
@@ -99,7 +99,7 @@ struct AddPlaylistView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.5)
-                        Text(progressMessage ?? "Verifying...")
+                        Text(progressMessage ?? L("add_playlist.verifying"))
                             .font(.headline)
                             .multilineTextAlignment(.center)
                     }
@@ -109,10 +109,10 @@ struct AddPlaylistView: View {
                     .shadow(radius: 20)
                 }
             }
-            .alert("Error", isPresented: $showError, actions: {
-                Button("OK", role: .cancel) { }
+            .alert(L("common.error"), isPresented: $showError, actions: {
+                Button(L("common.ok"), role: .cancel) { }
             }, message: {
-                Text(errorMessage ?? "Unknown error occurred.")
+                Text(errorMessage ?? L("common.unknown_error"))
             })
         }
     }
@@ -120,7 +120,7 @@ struct AddPlaylistView: View {
     private func savePlaylist() async {
         isLoading = true
         errorMessage = nil
-        progressMessage = "Doğrulanıyor..."
+        progressMessage = L("add_playlist.verifying")
         
         let newPlaylist = Playlist(
             id: editingPlaylist?.id ?? UUID(),
@@ -162,7 +162,7 @@ struct AddPlaylistView: View {
                 await syncAndSave(newPlaylist: newPlaylist, client: client)
             } else {
                 await MainActor.run {
-                    errorMessage = "Authentication failed. Please check your credentials."
+                    errorMessage = L("add_playlist.auth_failed")
                     showError = true
                     isLoading = false
                     progressMessage = nil
@@ -184,24 +184,24 @@ struct AddPlaylistView: View {
         
         do {
             let catStart = Date()
-            await MainActor.run { self.progressMessage = "Kategoriler indiriliyor..." }
+            await MainActor.run { self.progressMessage = L("add_playlist.fetching_categories") }
             let liveCats = try await client.getLiveCategories()
             let vodCats = try await client.getVODCategories()
             let seriesCats = try await client.getSeriesCategories()
             print("NETWORK: Categories fetched in \(Date().timeIntervalSince(catStart)) seconds")
             
             let liveStart = Date()
-            await MainActor.run { self.progressMessage = "Canlı yayınlar indiriliyor..." }
+            await MainActor.run { self.progressMessage = L("add_playlist.fetching_live") }
             let liveStreams = try await client.getLiveStreams()
             print("NETWORK: Live Streams fetched in \(Date().timeIntervalSince(liveStart)) seconds | Count: \(liveStreams.count)")
             
             let vodStart = Date()
-            await MainActor.run { self.progressMessage = "Filmler indiriliyor..." }
+            await MainActor.run { self.progressMessage = L("add_playlist.fetching_movies") }
             let vods = try await client.getVODStreams()
             print("NETWORK: VODs fetched in \(Date().timeIntervalSince(vodStart)) seconds | Count: \(vods.count)")
             
             let seriesStart = Date()
-            await MainActor.run { self.progressMessage = "Diziler indiriliyor..." }
+            await MainActor.run { self.progressMessage = L("add_playlist.fetching_series") }
             let series = try await client.getSeries()
             print("NETWORK: Series fetched in \(Date().timeIntervalSince(seriesStart)) seconds | Count: \(series.count)")
             
@@ -211,7 +211,7 @@ struct AddPlaylistView: View {
             }
             print("DATABASE: Playlist saved successfully")
 
-            await MainActor.run { self.progressMessage = "Veritabanına kaydediliyor... Lütfen bekleyin." }
+            await MainActor.run { self.progressMessage = L("add_playlist.saving_db") }
             let insertStart = Date()
 
             // Yetişkin içerik filtresi
@@ -225,38 +225,38 @@ struct AddPlaylistView: View {
                 // Categories
                 for (index, cat) in liveCats.enumerated() {
                     if filterAdult, let name = cat.categoryName, AdultContentFilter.isAdultCategoryName(name) { continue }
-                    let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? "İsimsiz", parentId: cat.parentId, type: "live", sortIndex: index, playlistId: newPlaylist.id)
+                    let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? L("content.unnamed"), parentId: cat.parentId, type: "live", sortIndex: index, playlistId: newPlaylist.id)
                     try dbCat.save(db)
                 }
                 for (index, cat) in vodCats.enumerated() {
                     if filterAdult, let name = cat.categoryName, AdultContentFilter.isAdultCategoryName(name) { continue }
-                    let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? "İsimsiz", parentId: cat.parentId, type: "vod", sortIndex: index, playlistId: newPlaylist.id)
+                    let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? L("content.unnamed"), parentId: cat.parentId, type: "vod", sortIndex: index, playlistId: newPlaylist.id)
                     try dbCat.save(db)
                 }
                 for (index, cat) in seriesCats.enumerated() {
                     if filterAdult, let name = cat.categoryName, AdultContentFilter.isAdultCategoryName(name) { continue }
-                    let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? "İsimsiz", parentId: cat.parentId, type: "series", sortIndex: index, playlistId: newPlaylist.id)
+                    let dbCat = DBCategory(id: cat.id, name: cat.categoryName ?? L("content.unnamed"), parentId: cat.parentId, type: "series", sortIndex: index, playlistId: newPlaylist.id)
                     try dbCat.save(db)
                 }
 
                 // Live Streams
                 for (index, stream) in liveStreams.enumerated() {
                     if filterAdult, AdultContentFilter.isAdultLiveStream(stream, adultCategoryIds: adultLiveCatIds) { continue }
-                    let dbStream = DBLiveStream(streamId: stream.id, name: stream.name ?? "İsimsiz", streamIcon: stream.streamIcon, epgChannelId: stream.epgChannelId, categoryId: stream.categoryId, sortIndex: index, playlistId: newPlaylist.id)
+                    let dbStream = DBLiveStream(streamId: stream.id, name: stream.name ?? L("content.unnamed"), streamIcon: stream.streamIcon, epgChannelId: stream.epgChannelId, categoryId: stream.categoryId, sortIndex: index, playlistId: newPlaylist.id)
                     try dbStream.save(db)
                 }
 
                 // VODs
                 for (index, stream) in vods.enumerated() {
                     if filterAdult, AdultContentFilter.isAdultVODStream(stream, adultCategoryIds: adultVodCatIds) { continue }
-                    let dbVOD = DBVODStream(streamId: stream.id, name: stream.name ?? "İsimsiz", streamIcon: stream.streamIcon, categoryId: stream.categoryId, rating: stream.rating, containerExtension: stream.containerExtension, sortIndex: index, playlistId: newPlaylist.id)
+                    let dbVOD = DBVODStream(streamId: stream.id, name: stream.name ?? L("content.unnamed"), streamIcon: stream.streamIcon, categoryId: stream.categoryId, rating: stream.rating, containerExtension: stream.containerExtension, sortIndex: index, playlistId: newPlaylist.id)
                     try dbVOD.save(db)
                 }
 
                 // Series
                 for (index, s) in series.enumerated() {
                     if filterAdult, let cid = s.categoryId, adultSeriesCatIds.contains(cid) { continue }
-                    let dbSeries = DBSeries(seriesId: s.id, name: s.name ?? "İsimsiz", cover: s.cover, plot: s.plot, genre: s.genre, rating: s.rating, categoryId: s.categoryId, sortIndex: index, playlistId: newPlaylist.id)
+                    let dbSeries = DBSeries(seriesId: s.id, name: s.name ?? L("content.unnamed"), cover: s.cover, plot: s.plot, genre: s.genre, rating: s.rating, categoryId: s.categoryId, sortIndex: index, playlistId: newPlaylist.id)
                     try dbSeries.save(db)
                 }
             }
@@ -271,7 +271,7 @@ struct AddPlaylistView: View {
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = "İçerikler indirilirken veya kaydedilirken hata oluştu: \(error.localizedDescription)"
+                self.errorMessage = L("add_playlist.download_save_error", error.localizedDescription)
                 self.showError = true
                 self.isLoading = false
                 self.progressMessage = nil

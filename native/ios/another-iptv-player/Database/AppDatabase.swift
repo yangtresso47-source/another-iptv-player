@@ -220,6 +220,54 @@ struct AppDatabase {
             try db.execute(sql: "DROP TABLE IF EXISTS epgShortCache")
         }
 
+        // M3U / M3U8 playlist desteği: Xtream şeması dışına dokunmadan
+        // playlist türü ayrımı ve m3uChannel tablosu eklenir.
+        migrator.registerMigration("addM3USupport") { db in
+            try db.alter(table: "playlist") { t in
+                t.add(column: "type", .text).notNull().defaults(to: "xtream")
+                t.add(column: "m3uEpgURL", .text)
+            }
+
+            try db.create(table: "m3uChannel") { t in
+                t.column("id", .text).primaryKey()
+                t.column("playlistId", .text).notNull()
+                    .references("playlist", column: "id", onDelete: .cascade)
+                t.column("name", .text).notNull()
+                t.column("url", .text).notNull()
+                t.column("tvgId", .text)
+                t.column("tvgName", .text)
+                t.column("tvgLogo", .text)
+                t.column("tvgCountry", .text)
+                t.column("groupTitle", .text)
+                t.column("userAgent", .text)
+                t.column("sortIndex", .integer).notNull().defaults(to: 0)
+            }
+            try db.create(
+                index: "idx_m3uChannel_playlist_group",
+                on: "m3uChannel",
+                columns: ["playlistId", "groupTitle", "sortIndex"],
+                ifNotExists: true
+            )
+        }
+
+        // M3U favoriler: mevcut `favorite` tablosu INTEGER streamId kullandığı için M3U UUID'leri
+        // için uygun değil. Ayrı tablo.
+        migrator.registerMigration("addM3UFavorites") { db in
+            try db.create(table: "m3uFavorite") { t in
+                t.column("channelId", .text).notNull()
+                t.column("playlistId", .text).notNull()
+                    .references("playlist", column: "id", onDelete: .cascade)
+                t.column("createdAt", .datetime).notNull().defaults(to: Date())
+                t.primaryKey(["channelId", "playlistId"])
+            }
+            try db.create(
+                index: "idx_m3uFavorite_playlist",
+                on: "m3uFavorite",
+                columns: ["playlistId", "createdAt"],
+                ifNotExists: true
+            )
+        }
+
         return migrator
     }
 }

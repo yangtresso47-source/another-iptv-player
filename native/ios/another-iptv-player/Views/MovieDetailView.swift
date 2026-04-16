@@ -70,7 +70,7 @@ struct MovieDetailView: View {
     var body: some View {
         Group {
             if isLoading && !currentMovie.metadataLoaded {
-                ProgressView("Film bilgileri yükleniyor...")
+                ProgressView(L("detail.loading_movie"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = errorMessage {
                 errorView(error)
@@ -103,13 +103,13 @@ struct MovieDetailView: View {
 
     private func errorView(_ error: String) -> some View {
         VStack(spacing: 16) {
-            Text("Hata")
+            Text(L("common.error"))
                 .font(.headline)
             Text(error)
                 .foregroundColor(.red)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
-            Button("Tekrar Dene") {
+            Button(L("common.try_again")) {
                 Task { await fetchMovieInfo() }
             }
             .buttonStyle(.borderedProminent)
@@ -128,12 +128,12 @@ struct MovieDetailView: View {
                 GenreChipRow(genres: DetailFormatting.genreList(currentMovie.genre))
 
                 DetailActionBar(
-                    primaryTitle: resumeMs != nil ? "Kaldığın Yerden Devam Et" : "Hemen İzle",
-                    primarySubtitle: resumeMs.map { "\(DetailFormatting.formatMs($0))'dan devam et" },
+                    primaryTitle: resumeMs != nil ? L("detail.resume") : L("detail.watch_now"),
+                    primarySubtitle: resumeMs.map { DetailFormatting.formatMs($0) },
                     primaryIcon: resumeMs != nil ? "play.circle.fill" : "play.fill",
                     progress: resumeProgress,
                     onPrimary: { presentMoviePlayer(resume: true) },
-                    restartTitle: resumeMs != nil ? "Baştan" : nil,
+                    restartTitle: resumeMs != nil ? L("detail.restart") : nil,
                     onRestart: resumeMs != nil ? { presentMoviePlayer(resume: false) } : nil,
                     trailerURL: trailerURL
                 )
@@ -144,11 +144,11 @@ struct MovieDetailView: View {
                 }
 
                 if let director = currentMovie.director?.trimmingCharacters(in: .whitespacesAndNewlines), !director.isEmpty {
-                    DetailInfoTextBlock(label: "Yönetmen", value: director)
+                    DetailInfoTextBlock(label: L("movie.director"), value: director)
                 }
 
                 if let cast = currentMovie.cast?.trimmingCharacters(in: .whitespacesAndNewlines), !cast.isEmpty {
-                    DetailInfoTextBlock(label: "Oyuncular", value: cast, lineLimit: 3)
+                    DetailInfoTextBlock(label: L("movie.cast"), value: cast, lineLimit: 3)
                 }
             }
             .padding(.bottom, 48)

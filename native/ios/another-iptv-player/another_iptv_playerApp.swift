@@ -17,6 +17,11 @@ struct another_iptv_playerApp: App {
     init() {
         IPTVRemoteImagePipeline.installAsShared()
         _ = AppDatabase.shared
+        UserDefaults.standard.register(defaults: [
+            "player.pipEnabled": true,
+            "player.continuePlayingInBackground": true,
+            "player.speedUpOnLongPress": true
+        ])
     }
 
     var body: some Scene {

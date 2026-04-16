@@ -22,7 +22,7 @@ struct SubtitleAppearanceSheet: View {
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 } header: {
-                    Text("Önizleme")
+                    Text(L("subtitle.preview"))
                 }
 
                 fontSection
@@ -32,14 +32,14 @@ struct SubtitleAppearanceSheet: View {
                 timingSection
                 resetSection
             }
-            .navigationTitle("Altyazı Ayarları")
+            .navigationTitle(L("subtitle.settings_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Kapat") { dismiss() }
+                    Button(L("common.close")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Uygula") {
+                    Button(L("subtitle.apply")) {
                         player.applySubtitleAppearanceSettings(draft)
                         dismiss()
                     }
@@ -57,7 +57,7 @@ struct SubtitleAppearanceSheet: View {
     private var fontSection: some View {
         Section {
             stepperRow(
-                label: "Yazı boyutu",
+                label: L("subtitle.font_size"),
                 value: Binding(
                     get: { Double(draft.fontSize) },
                     set: { draft.fontSize = Int($0.rounded()) }
@@ -67,28 +67,28 @@ struct SubtitleAppearanceSheet: View {
                 display: { "\(Int($0)) px" }
             )
             stepperRow(
-                label: "Satır yüksekliği",
+                label: L("subtitle.font_height"),
                 value: $draft.lineHeight,
                 range: SubtitleAppearanceSettings.lineHeightRange,
                 step: 0.05,
                 display: { String(format: "%.2f×", $0) }
             )
             stepperRow(
-                label: "Harf aralığı",
+                label: L("subtitle.letter_spacing"),
                 value: $draft.letterSpacing,
                 range: SubtitleAppearanceSettings.letterSpacingRange,
                 step: 0.1,
                 display: { String(format: "%.1f", $0) }
             )
             stepperRow(
-                label: "Kelime aralığı",
+                label: L("subtitle.word_spacing"),
                 value: $draft.wordSpacing,
                 range: SubtitleAppearanceSettings.wordSpacingRange,
                 step: 0.1,
                 display: { String(format: "%.1f", $0) }
             )
             stepperRow(
-                label: "İç boşluk",
+                label: L("subtitle.padding"),
                 value: Binding(
                     get: { Double(draft.padding) },
                     set: { draft.padding = Int($0.rounded()) }
@@ -98,14 +98,14 @@ struct SubtitleAppearanceSheet: View {
                 display: { "\(Int($0)) px" }
             )
         } header: {
-            Text("Yazı")
+            Text(L("subtitle.section.font"))
         }
     }
 
     private var colorSection: some View {
         Section {
             ColorPicker(
-                "Yazı rengi",
+                L("subtitle.text_color"),
                 selection: Binding(
                     get: { Color(hex6: draft.textColorHex6) },
                     set: { draft.textColorHex6 = $0.toHex6() }
@@ -113,11 +113,11 @@ struct SubtitleAppearanceSheet: View {
                 supportsOpacity: false
             )
 
-            Toggle("Arka plan", isOn: $draft.backgroundEnabled)
+            Toggle(L("subtitle.background_enabled"), isOn: $draft.backgroundEnabled)
 
             if draft.backgroundEnabled {
                 ColorPicker(
-                    "Arka plan rengi",
+                    L("subtitle.background_color"),
                     selection: Binding(
                         get: { Color(hex6: draft.backgroundColorHex6) },
                         set: { draft.backgroundColorHex6 = $0.toHex6() }
@@ -125,7 +125,7 @@ struct SubtitleAppearanceSheet: View {
                     supportsOpacity: false
                 )
                 stepperRow(
-                    label: "Arka plan opaklığı",
+                    label: L("subtitle.background_opacity"),
                     value: $draft.backgroundOpacity,
                     range: SubtitleAppearanceSettings.backgroundOpacityRange,
                     step: 0.05,
@@ -133,16 +133,16 @@ struct SubtitleAppearanceSheet: View {
                 )
             }
         } header: {
-            Text("Renk")
+            Text(L("subtitle.section.color"))
         }
     }
 
     private var styleSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Yazı tipi ağırlığı")
+                Text(L("subtitle.font_weight"))
                     .font(.subheadline.weight(.medium))
-                Picker("Yazı tipi ağırlığı", selection: $draft.fontWeight) {
+                Picker(L("subtitle.font_weight"), selection: $draft.fontWeight) {
                     ForEach(SubtitleFontWeight.allCases) { w in
                         Text(w.shortLabel).tag(w)
                     }
@@ -152,9 +152,9 @@ struct SubtitleAppearanceSheet: View {
             .padding(.vertical, 4)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Hizalama")
+                Text(L("subtitle.alignment"))
                     .font(.subheadline.weight(.medium))
-                Picker("Hizalama", selection: $draft.textAlignment) {
+                Picker(L("subtitle.alignment"), selection: $draft.textAlignment) {
                     ForEach(SubtitleTextAlignment.allCases) { a in
                         Image(systemName: a.iconName).tag(a)
                     }
@@ -163,25 +163,25 @@ struct SubtitleAppearanceSheet: View {
             }
             .padding(.vertical, 4)
 
-            Toggle("İtalik", isOn: $draft.italic)
+            Toggle(L("subtitle.italic"), isOn: $draft.italic)
         } header: {
-            Text("Stil")
+            Text(L("subtitle.style"))
         } footer: {
-            Text("İnce/orta gibi ağırlıklar cihazın sistem yazı tipine göre yaklaşık uygulanır. İki yana yaslama libass kısıtı nedeniyle ortaya hizalamaya düşebilir.")
+            Text(L("subtitle.style.footer"))
         }
     }
 
     private var extraSection: some View {
         Section {
             stepperRow(
-                label: "Kenar kalınlığı",
+                label: L("subtitle.outline_size"),
                 value: $draft.outlineSize,
                 range: SubtitleAppearanceSettings.outlineSizeRange,
                 step: 0.5,
                 display: { String(format: "%.1f", $0) }
             )
             ColorPicker(
-                "Kenar rengi",
+                L("subtitle.outline_color"),
                 selection: Binding(
                     get: { Color(hex6: draft.outlineColorHex6) },
                     set: { draft.outlineColorHex6 = $0.toHex6() }
@@ -189,7 +189,7 @@ struct SubtitleAppearanceSheet: View {
                 supportsOpacity: false
             )
             stepperRow(
-                label: "Dikey konum",
+                label: L("subtitle.vertical_offset"),
                 value: Binding(
                     get: { Double(draft.verticalOffset) },
                     set: { draft.verticalOffset = Int($0.rounded()) }
@@ -198,12 +198,12 @@ struct SubtitleAppearanceSheet: View {
                 step: 4,
                 display: { val in
                     let v = Int(val)
-                    if v == 0 { return "Varsayılan" }
+                    if v == 0 { return L("subtitle.default_value") }
                     return v > 0 ? "+\(v) px" : "\(v) px"
                 }
             )
         } header: {
-            Text("Kenar ve Konum")
+            Text(L("subtitle.outline_position"))
         }
     }
 
@@ -214,7 +214,7 @@ struct SubtitleAppearanceSheet: View {
             } label: {
                 HStack {
                     Image(systemName: "arrow.counterclockwise")
-                    Text("Varsayılana döndür")
+                    Text(L("subtitle.reset_to_default"))
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -225,20 +225,20 @@ struct SubtitleAppearanceSheet: View {
     private var timingSection: some View {
         Section {
             stepperRow(
-                label: "Zaman kaydırma",
+                label: L("subtitle.time_offset"),
                 value: $draft.delaySeconds,
                 range: SubtitleAppearanceSettings.delaySecondsRange,
                 step: 0.1,
                 display: { s in
-                    if abs(s) < 0.05 { return "Gecikme yok" }
+                    if abs(s) < 0.05 { return L("subtitle.no_delay") }
                     let sign = s > 0 ? "+" : ""
                     return "\(sign)\(String(format: "%.1f", s)) s"
                 }
             )
         } header: {
-            Text("Zamanlama")
+            Text(L("subtitle.timing"))
         } footer: {
-            Text("Negatif: daha erken; pozitif: daha geç.")
+            Text(L("subtitle.timing_footer"))
         }
     }
 
@@ -272,7 +272,7 @@ struct SubtitleAppearanceSheet: View {
 private struct SubtitlePreviewCard: View {
     let settings: SubtitleAppearanceSettings
 
-    private let sampleText = "Hoş geldin. Bu bir altyazı\nönizlemesidir."
+    private var sampleText: String { L("subtitle.sample_preview") }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -326,7 +326,7 @@ private struct SubtitlePreviewCard: View {
     }
 
     private var previewFont: Font {
-        let size = CGFloat(settings.fontSize) * 0.5 // preview is smaller than real render
+        let size = CGFloat(settings.fontSize) * 0.5
         return Font.system(size: size, weight: previewWeight)
     }
 

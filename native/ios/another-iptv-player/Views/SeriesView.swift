@@ -19,6 +19,9 @@ struct SeriesView: View {
     @State private var displayCategories: [DBCategory] = []
     @State private var displayItemsByCategory: [String: [SeriesWithCategory]] = [:]
 
+    @State private var showingCategoryPicker = false
+    @State private var pendingScrollTarget: String? = nil
+
     var body: some View {
         Group {
             if displayCategories.isEmpty {
@@ -26,7 +29,7 @@ struct SeriesView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text(contentStore.loadingMessage ?? "Diziler Hazırlanıyor...")
+                        Text(contentStore.loadingMessage ?? L("series.empty.preparing"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -36,32 +39,80 @@ struct SeriesView: View {
                         Image(systemName: "play.tv")
                             .font(.largeTitle)
                             .foregroundColor(.secondary)
-                        Text(debouncedQuery.isEmpty ? "Hiç kategori bulunamadı." : "Arama sonucu bulunamadı.")
+                        Text(debouncedQuery.isEmpty ? L("live.empty.no_category") : L("list.no_result"))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
-                ScrollView {
-                    ContinueWatchingRow(playlist: playlist, typeFilter: "series") { item in
-                        presentSeriesHistoryItem(item)
-                    }
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        ContinueWatchingRow(
+                            playlist: playlist,
+                            typeFilter: "series",
+                            destination: {
+                                WatchHistoryListView(playlist: playlist, typeFilter: "series") { item in
+                                    presentSeriesHistoryItem(item)
+                                }
+                            },
+                            onPlay: { item in
+                                presentSeriesHistoryItem(item)
+                            }
+                        )
 
-                    LazyVStack(spacing: 0) {
-                        ForEach(displayCategories) { category in
-                            SeriesCategoryShelfRow(
-                                playlist: playlist,
-                                category: category,
-                                items: displayItemsByCategory[category.id] ?? [],
-                                isStreamsLoading: !contentStore.streamsLoaded
-                            )
-                            .equatable()
+                        LazyVStack(spacing: 0) {
+                            ForEach(displayCategories) { category in
+                                SeriesCategoryShelfRow(
+                                    playlist: playlist,
+                                    category: category,
+                                    items: displayItemsByCategory[category.id] ?? [],
+                                    isStreamsLoading: !contentStore.streamsLoaded
+                                )
+                                .equatable()
+                                .id(category.id)
+                            }
+                        }
+                    }
+                    .onChange(of: pendingScrollTarget) { _, target in
+                        guard let target else { return }
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            proxy.scrollTo(target, anchor: .top)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            pendingScrollTarget = nil
                         }
                     }
                 }
             }
         }
-        .searchable(text: $searchText, isPresented: $isSearchActive, prompt: "Dizi Ara...")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingCategoryPicker = true
+                } label: {
+                    Image(systemName: "list.bullet.indent")
+                        .font(.body.weight(.semibold))
+                }
+                .disabled(displayCategories.isEmpty)
+                .accessibilityLabel("Kategorilere atla")
+            }
+        }
+        .sheet(isPresented: $showingCategoryPicker) {
+            CategoryPickerSheet(
+                title: "Kategoriler",
+                entries: displayCategories.map { cat in
+                    CategoryPickerSheet.Entry(
+                        id: cat.id,
+                        name: cat.name,
+                        count: displayItemsByCategory[cat.id]?.count ?? 0
+                    )
+                }
+            ) { id in
+                showingCategoryPicker = false
+                pendingScrollTarget = id
+            }
+        }
+        .searchable(text: $searchText, isPresented: $isSearchActive, prompt: L("series.search_placeholder"))
         .onChange(of: searchText) { _, new in
             debounceTask?.cancel()
             debounceTask = Task {
@@ -215,7 +266,7 @@ struct SeriesCategoryShelfRow: View, Equatable {
                 if isStreamsLoading {
                     Color.clear.frame(height: posterMetrics.shelfRowTotalHeight)
                 } else {
-                    Text("Bu kategoride dizi yok.")
+                    Text(L("series.empty.no_in_category"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
@@ -330,7 +381,7 @@ struct SeriesCategoryDetailView: View {
             .navigationTitle(category.name)
             .navigationBarTitleDisplayMode(.large)
             .toolbar(.hidden, for: .tabBar)
-            .searchable(text: $searchText, placement: .toolbar, prompt: "Dizi Ara...")
+            .searchable(text: $searchText, placement: .toolbar, prompt: L("series.search_placeholder"))
             .onChange(of: searchText) { _, new in
                 debounceTask?.cancel()
                 debounceTask = Task {
@@ -383,7 +434,7 @@ struct SeriesCategoryContent: View {
                     Image(systemName: "play.tv")
                         .font(.largeTitle)
                         .foregroundColor(.secondary)
-                    Text("Hiç dizi bulunamadı.")
+                    Text(L("series.empty.no_series"))
                         .foregroundColor(.secondary)
                     Spacer()
                 }
@@ -493,7 +544,7 @@ struct SeriesDetailView: View {
     var body: some View {
         Group {
             if isLoading && !currentSeries.seasonsLoaded {
-                ProgressView("Dizi bilgileri yükleniyor...")
+                ProgressView(L("detail.loading_series"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = errorMessage {
                 errorView(error)
@@ -531,7 +582,7 @@ struct SeriesDetailView: View {
         playerOverlay.present(onDismiss: { selectedEpisode = nil }) {
             PlayerView(
                 url: url,
-                title: ep.title ?? "Bölüm",
+                title: ep.title ?? L("detail.episode_fallback"),
                 subtitle: currentSeries.name,
                 artworkURL: cover,
                 isLiveStream: false,
@@ -555,13 +606,13 @@ struct SeriesDetailView: View {
 
     private func errorView(_ error: String) -> some View {
         VStack(spacing: 16) {
-            Text("Hata")
+            Text(L("common.error"))
                 .font(.headline)
             Text(error)
                 .foregroundColor(.red)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
-            Button("Tekrar Dene") {
+            Button(L("common.try_again")) {
                 Task { await fetchSeriesInfo() }
             }
             .buttonStyle(.borderedProminent)
@@ -580,7 +631,7 @@ struct SeriesDetailView: View {
                 GenreChipRow(genres: DetailFormatting.genreList(currentSeries.genre))
 
                 DetailActionBar(
-                    primaryTitle: hasResume ? "Kaldığın Yerden Devam Et" : "İzle",
+                    primaryTitle: hasResume ? L("detail.resume") : L("detail.watch"),
                     primarySubtitle: resumeSubtitle,
                     primaryIcon: hasResume ? "play.circle.fill" : "play.fill",
                     progress: resumeProgress,
@@ -596,7 +647,7 @@ struct SeriesDetailView: View {
                 }
 
                 if let director = currentSeries.director?.trimmingCharacters(in: .whitespacesAndNewlines), !director.isEmpty {
-                    DetailInfoTextBlock(label: "Yönetmen", value: director)
+                    DetailInfoTextBlock(label: L("movie.director"), value: director)
                 }
 
                 if let cast = currentSeries.cast?.trimmingCharacters(in: .whitespacesAndNewlines), !cast.isEmpty {
@@ -621,7 +672,7 @@ struct SeriesDetailView: View {
     @ViewBuilder
     private var seasonsSection: some View {
         if seasons.isEmpty {
-            Text(currentSeries.seasonsLoaded ? "Sezon bilgisi bulunamadı." : "Sezonlar yükleniyor…")
+            Text(currentSeries.seasonsLoaded ? L("series.no_seasons_info") : L("series.loading_seasons"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
@@ -629,13 +680,13 @@ struct SeriesDetailView: View {
         } else {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Sezonlar")
+                    Text(L("series.seasons"))
                         .font(.title3.weight(.bold))
                     Spacer()
                     if let sid = selectedSeasonId,
                        let s = seasons.first(where: { $0.id == sid }),
                        let count = s.episodeCount {
-                        Text("\(count) Bölüm")
+                        Text(L("detail.episode_count_plural", count))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -917,7 +968,7 @@ struct EpisodesPanel: View {
     var body: some View {
         Group {
             if observer.episodes.isEmpty {
-                Text("Bu sezonda bölüm bulunamadı.")
+                Text(L("series.no_episodes_in_season"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
@@ -1007,13 +1058,13 @@ private struct EpisodeDetailRow: View {
                     if let history = watchHistory, history.durationMs > 0 {
                         let progress = Double(history.lastTimeMs) / Double(history.durationMs)
                         if progress >= 0.95 {
-                            Label("İzlendi", systemImage: "checkmark.circle.fill")
+                            Label(L("detail.watched"), systemImage: "checkmark.circle.fill")
                                 .font(.caption)
                                 .foregroundStyle(.green)
                                 .labelStyle(.titleAndIcon)
                         } else {
                             let remainingMs = history.durationMs - history.lastTimeMs
-                            Label("\(formatWatchMs(remainingMs)) kaldı", systemImage: "play.circle")
+                            Label(L("detail.remaining_format", formatWatchMs(remainingMs)), systemImage: "play.circle")
                                 .font(.caption)
                                 .foregroundStyle(Color.accentColor)
                                 .labelStyle(.titleAndIcon)
@@ -1040,7 +1091,7 @@ private struct EpisodeDetailRow: View {
     private var episodeTitle: String {
         let num = episode.episodeNum.map { "\($0). " } ?? ""
         let raw = episode.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let title = raw.isEmpty ? "Bölüm" : raw
+        let title = raw.isEmpty ? L("detail.episode_fallback") : raw
         return "\(num)\(title)"
     }
 

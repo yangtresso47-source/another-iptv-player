@@ -57,12 +57,12 @@ struct MPVPlayerDemoView: View {
                 .font(.caption.monospacedDigit())
             }
             if player.isBuffering {
-              Text("Tampon")
+              Text(L("player.buffering"))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             }
             if player.isCompleted {
-              Text("Bitti")
+              Text(L("player.ended"))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             }
@@ -77,7 +77,7 @@ struct MPVPlayerDemoView: View {
       }
 
       if !player.isReady {
-        ProgressView("Oynatıcı hazırlanıyor…")
+        ProgressView(L("player.preparing"))
       }
     }
     .padding()

@@ -16,8 +16,8 @@ struct PosterMetrics: Equatable, Sendable {
     var shelfPosterWidth: CGFloat { scaled(200) }
     var shelfPosterHeight: CGFloat { scaled(300) }
 
-    var categoryGridPosterWidth: CGFloat { scaled(240) }
-    var categoryGridPosterHeight: CGFloat { scaled(360) }
+    var categoryGridPosterWidth: CGFloat { scaled(200) }
+    var categoryGridPosterHeight: CGFloat { scaled(300) }
 
     var searchGridMinWidth: CGFloat { scaled(110) }
     var searchCardWidth: CGFloat { scaled(160) }
@@ -41,8 +41,8 @@ struct PosterMetrics: Equatable, Sendable {
     var episodeThumbHeight: CGFloat { scaled(150) }
     var episodeRowDividerLeading: CGFloat { scaled(100) + 28 }
 
-    var gridSpacing: CGFloat { scaled(24) }
-    var gridRowSpacing: CGFloat { scaled(28) }
+    var gridSpacing: CGFloat { scaled(16) }
+    var gridRowSpacing: CGFloat { scaled(20) }
     var searchGridSpacing: CGFloat { scaled(12) }
     var searchSectionRowSpacing: CGFloat { scaled(16) }
 

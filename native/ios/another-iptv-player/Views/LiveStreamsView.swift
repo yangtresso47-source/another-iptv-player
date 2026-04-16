@@ -6,10 +6,6 @@ struct LiveStreamsView: View {
     @ObservedObject private var contentStore = PlaylistContentStore.shared
     @EnvironmentObject private var playerOverlay: PlayerOverlayController
 
-    @State private var showLiveChannelBrowser = false
-    /// Tarayıcı kapanırken seçilen kanal; `onDismiss` içinde `presentLiveSelection` ile overlay açılır.
-    @State private var pendingStreamAfterBrowserDismiss: DBLiveStream?
-
     @State private var searchText = ""
     @State private var debouncedQuery = ""
     @State private var debounceTask: Task<Void, Never>?
@@ -17,6 +13,9 @@ struct LiveStreamsView: View {
 
     @State private var displayCategories: [DBCategory] = []
     @State private var displayItemsByCategory: [String: [LiveStreamWithCategory]] = [:]
+
+    @State private var showingCategoryPicker = false
+    @State private var pendingScrollTarget: String? = nil
 
     private var livePlaybackQueue: [DBLiveStream] {
         displayCategories.flatMap { displayItemsByCategory[$0.id]?.map(\.stream) ?? [] }
@@ -41,7 +40,7 @@ struct LiveStreamsView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text(contentStore.loadingMessage ?? "Kanallar Hazırlanıyor...")
+                        Text(contentStore.loadingMessage ?? L("live.empty.preparing"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -51,7 +50,7 @@ struct LiveStreamsView: View {
                         Image(systemName: "tv.slash")
                             .font(.largeTitle)
                             .foregroundColor(.secondary)
-                        Text(debouncedQuery.isEmpty ? "Hiç kategori bulunamadı." : "Arama sonucu bulunamadı.")
+                        Text(debouncedQuery.isEmpty ? L("live.empty.no_category") : L("list.no_result"))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -60,7 +59,7 @@ struct LiveStreamsView: View {
                 contentList
             }
         }
-        .searchable(text: $searchText, isPresented: $isSearchActive, prompt: "Kanal Ara...")
+        .searchable(text: $searchText, isPresented: $isSearchActive, prompt: L("live.search_placeholder"))
         .onChange(of: searchText) { _, new in
             debounceTask?.cancel()
             debounceTask = Task {
@@ -74,34 +73,31 @@ struct LiveStreamsView: View {
         }
         .task(id: debouncedQuery) { await recomputeFilter() }
         .task(id: contentStore.streamsLoaded) { await recomputeFilter() }
-        .fullScreenCover(isPresented: $showLiveChannelBrowser, onDismiss: {
-            guard let stream = pendingStreamAfterBrowserDismiss else { return }
-            pendingStreamAfterBrowserDismiss = nil
-            DispatchQueue.main.async {
-                presentLiveSelection(LivePlayerSelection(stream: stream, history: nil))
-            }
-        }) {
-            NavigationStack {
-                LiveChannelBrowserScreen(
-                    sections: liveChannelSections,
-                    currentStreamId: nil,
-                    onSelectChannel: { stream in
-                        pendingStreamAfterBrowserDismiss = stream
-                        showLiveChannelBrowser = false
-                    }
-                )
-            }
-        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    showLiveChannelBrowser = true
+                    showingCategoryPicker = true
                 } label: {
-                    Image(systemName: "rectangle.split.3x1")
+                    Image(systemName: "list.bullet.indent")
                         .font(.body.weight(.semibold))
                 }
-                .disabled(liveChannelSections.isEmpty)
-                .accessibilityLabel("Kanal listesi")
+                .disabled(displayCategories.isEmpty)
+                .accessibilityLabel(L("list.jump_to_category"))
+            }
+        }
+        .sheet(isPresented: $showingCategoryPicker) {
+            CategoryPickerSheet(
+                title: "Kategoriler",
+                entries: displayCategories.map { cat in
+                    CategoryPickerSheet.Entry(
+                        id: cat.id,
+                        name: cat.name,
+                        count: displayItemsByCategory[cat.id]?.count ?? 0
+                    )
+                }
+            ) { id in
+                showingCategoryPicker = false
+                pendingScrollTarget = id
             }
         }
     }
@@ -163,23 +159,44 @@ struct LiveStreamsView: View {
     }
 
     private var contentList: some View {
-        ScrollView {
-            ContinueWatchingRow(playlist: playlist, typeFilter: "live") { item in
-                presentHistoryItem(item)
+        ScrollViewReader { proxy in
+            ScrollView {
+                ContinueWatchingRow(
+                    playlist: playlist,
+                    typeFilter: "live",
+                    destination: {
+                        WatchHistoryListView(playlist: playlist, typeFilter: "live") { item in
+                            presentHistoryItem(item)
+                        }
+                    },
+                    onPlay: { item in
+                        presentHistoryItem(item)
+                    }
+                )
+
+                LazyVStack(spacing: 0) {
+                    ForEach(displayCategories) { category in
+                        LiveCategoryShelfRow(
+                            playlist: playlist,
+                            category: category,
+                            items: displayItemsByCategory[category.id] ?? [],
+                            onStreamSelected: { stream, history in
+                                presentLiveSelection(LivePlayerSelection(stream: stream, history: history))
+                            },
+                            isStreamsLoading: !contentStore.streamsLoaded
+                        )
+                        .equatable()
+                        .id(category.id)
+                    }
+                }
             }
-            
-            LazyVStack(spacing: 0) {
-                ForEach(displayCategories) { category in
-                    LiveCategoryShelfRow(
-                        playlist: playlist,
-                        category: category,
-                        items: displayItemsByCategory[category.id] ?? [],
-                        onStreamSelected: { stream, history in
-                            presentLiveSelection(LivePlayerSelection(stream: stream, history: history))
-                        },
-                        isStreamsLoading: !contentStore.streamsLoaded
-                    )
-                    .equatable()
+            .onChange(of: pendingScrollTarget) { _, target in
+                guard let target else { return }
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo(target, anchor: .top)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    pendingScrollTarget = nil
                 }
             }
         }
@@ -291,7 +308,7 @@ struct LiveCategoryShelfRow: View, Equatable {
                 if isStreamsLoading {
                     Color.clear.frame(height: posterMetrics.liveShelfIcon + 30)
                 } else {
-                    Text("Bu kategoride kanal yok.")
+                    Text(L("live.empty.no_channel_in_category"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
@@ -400,7 +417,7 @@ struct LiveCategoryDetailView: View {
         .navigationTitle(category.name)
         .navigationBarTitleDisplayMode(.large)
         .toolbar(.hidden, for: .tabBar)
-        .searchable(text: $searchText, placement: .toolbar, prompt: "Kanal Ara...")
+        .searchable(text: $searchText, placement: .toolbar, prompt: L("live.search_placeholder"))
         .onChange(of: searchText) { _, new in
             debounceTask?.cancel()
             debounceTask = Task {
@@ -443,7 +460,7 @@ struct LiveCategoryContent: View {
                     Image(systemName: "magnifyingglass")
                         .font(.largeTitle)
                         .foregroundColor(.secondary)
-                    Text("Hiç kanal bulunamadı.")
+                    Text(L("list.no_channel"))
                         .foregroundColor(.secondary)
                     Spacer()
                 }

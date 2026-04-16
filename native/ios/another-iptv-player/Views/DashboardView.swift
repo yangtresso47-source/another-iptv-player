@@ -29,44 +29,43 @@ struct DashboardView: View {
     var body: some View {
         ZStack {
             TabView(selection: tabBinding) {
-                Tab("Canlı TV", systemImage: "tv", value: 0) {
+                Tab(L("dashboard.live"), systemImage: "tv", value: 0) {
                     NavigationStack {
                         LiveStreamsView(playlist: playlist)
-                            .dashboardNavigation(playlist: playlist, tabTitle: "Canlı TV", type: "live", onDismiss: onDismiss)
+                            .dashboardNavigation(playlist: playlist, tabTitle: L("dashboard.live"), type: "live", onDismiss: onDismiss)
                     }
                 }
 
-                Tab("Filmler", systemImage: "film", value: 1) {
+                Tab(L("dashboard.movies"), systemImage: "film", value: 1) {
                     NavigationStack {
                         VODView(playlist: playlist)
-                            .dashboardNavigation(playlist: playlist, tabTitle: "Filmler", type: "vod", onDismiss: onDismiss)
+                            .dashboardNavigation(playlist: playlist, tabTitle: L("dashboard.movies"), type: "vod", onDismiss: onDismiss)
                     }
                 }
 
-                Tab("Diziler", systemImage: "play.tv", value: 2) {
+                Tab(L("dashboard.series"), systemImage: "play.tv", value: 2) {
                     NavigationStack {
                         SeriesView(playlist: playlist)
-                            .dashboardNavigation(playlist: playlist, tabTitle: "Diziler", type: "series", onDismiss: onDismiss)
+                            .dashboardNavigation(playlist: playlist, tabTitle: L("dashboard.series"), type: "series", onDismiss: onDismiss)
                     }
                 }
 
-                Tab("Ayarlar", systemImage: "gear", value: 3) {
+                Tab(L("dashboard.settings"), systemImage: "gear", value: 3) {
                     NavigationStack {
                         PlaylistSettingsView(playlist: playlist, onDismiss: onDismiss)
-                            .dashboardNavigation(playlist: playlist, tabTitle: "Ayarlar", onDismiss: onDismiss)
+                            .dashboardNavigation(playlist: playlist, tabTitle: L("dashboard.settings"), onDismiss: onDismiss)
                     }
                 }
 
-                Tab(value: 4, role: .search) {
+                Tab(L("dashboard.search"), systemImage: "magnifyingglass", value: 4, role: .search) {
                     NavigationStack {
                         SearchView(playlist: playlist, searchText: $globalSearchText)
-                            .navigationTitle("Arama")
+                            .navigationTitle(L("dashboard.search"))
                             .navigationBarTitleDisplayMode(.inline)
                     }
                 }
             }
             .tabViewStyle(.sidebarAdaptable)
-            .searchable(text: $globalSearchText, prompt: "Kanal, Film veya Dizi Ara...")
             .environment(\.posterMetrics, PosterMetrics(windowSize: windowSize))
 
             ZStack {
@@ -102,7 +101,7 @@ struct DashboardView: View {
         .task(id: playlist.id) {
             await contentStore.loadPlaylist(playlist)
         }
-        .alert("Yükleme hatası", isPresented: Binding(
+        .alert(L("loading.error.title"), isPresented: Binding(
             get: {
                 contentStore.loadError != nil
                     && contentStore.activePlaylistId == playlist.id
@@ -110,10 +109,10 @@ struct DashboardView: View {
             },
             set: { if !$0 { contentStore.loadError = nil } }
         )) {
-            Button("Tamam") {
+            Button(L("common.ok")) {
                 contentStore.loadError = nil
             }
-            Button("Tekrar dene") {
+            Button(L("common.try_again")) {
                 contentStore.loadError = nil
                 Task { await contentStore.loadPlaylist(playlist) }
             }

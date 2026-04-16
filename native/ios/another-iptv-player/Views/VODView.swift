@@ -18,6 +18,9 @@ struct VODView: View {
     @State private var displayCategories: [DBCategory] = []
     @State private var displayItemsByCategory: [String: [VODWithCategory]] = [:]
 
+    @State private var showingCategoryPicker = false
+    @State private var pendingScrollTarget: String? = nil
+
     var body: some View {
         Group {
             if displayCategories.isEmpty {
@@ -25,7 +28,7 @@ struct VODView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text(contentStore.loadingMessage ?? "Filmler Hazırlanıyor...")
+                        Text(contentStore.loadingMessage ?? L("vod.empty.preparing"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -35,32 +38,80 @@ struct VODView: View {
                         Image(systemName: "film")
                             .font(.largeTitle)
                             .foregroundColor(.secondary)
-                        Text(debouncedQuery.isEmpty ? "Hiç kategori bulunamadı." : "Arama sonucu bulunamadı.")
+                        Text(debouncedQuery.isEmpty ? L("live.empty.no_category") : L("list.no_result"))
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
-                ScrollView {
-                    ContinueWatchingRow(playlist: playlist, typeFilter: "vod") { item in
-                        presentHistoryPlayer(item)
-                    }
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        ContinueWatchingRow(
+                            playlist: playlist,
+                            typeFilter: "vod",
+                            destination: {
+                                WatchHistoryListView(playlist: playlist, typeFilter: "vod") { item in
+                                    presentHistoryPlayer(item)
+                                }
+                            },
+                            onPlay: { item in
+                                presentHistoryPlayer(item)
+                            }
+                        )
 
-                    LazyVStack(spacing: 0) {
-                        ForEach(displayCategories) { category in
-                            VODCategoryShelfRow(
-                                playlist: playlist,
-                                category: category,
-                                items: displayItemsByCategory[category.id] ?? [],
-                                isStreamsLoading: !contentStore.streamsLoaded
-                            )
-                            .equatable()
+                        LazyVStack(spacing: 0) {
+                            ForEach(displayCategories) { category in
+                                VODCategoryShelfRow(
+                                    playlist: playlist,
+                                    category: category,
+                                    items: displayItemsByCategory[category.id] ?? [],
+                                    isStreamsLoading: !contentStore.streamsLoaded
+                                )
+                                .equatable()
+                                .id(category.id)
+                            }
+                        }
+                    }
+                    .onChange(of: pendingScrollTarget) { _, target in
+                        guard let target else { return }
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            proxy.scrollTo(target, anchor: .top)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            pendingScrollTarget = nil
                         }
                     }
                 }
             }
         }
-        .searchable(text: $searchText, isPresented: $isSearchActive, prompt: "Film Ara...")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingCategoryPicker = true
+                } label: {
+                    Image(systemName: "list.bullet.indent")
+                        .font(.body.weight(.semibold))
+                }
+                .disabled(displayCategories.isEmpty)
+                .accessibilityLabel("Kategorilere atla")
+            }
+        }
+        .sheet(isPresented: $showingCategoryPicker) {
+            CategoryPickerSheet(
+                title: "Kategoriler",
+                entries: displayCategories.map { cat in
+                    CategoryPickerSheet.Entry(
+                        id: cat.id,
+                        name: cat.name,
+                        count: displayItemsByCategory[cat.id]?.count ?? 0
+                    )
+                }
+            ) { id in
+                showingCategoryPicker = false
+                pendingScrollTarget = id
+            }
+        }
+        .searchable(text: $searchText, isPresented: $isSearchActive, prompt: L("vod.search_placeholder"))
         .onChange(of: searchText) { _, new in
             debounceTask?.cancel()
             debounceTask = Task {
@@ -237,7 +288,7 @@ struct VODCategoryShelfRow: View, Equatable {
                 if isStreamsLoading {
                     Color.clear.frame(height: posterMetrics.shelfRowTotalHeight)
                 } else {
-                    Text("Bu kategoride film yok.")
+                    Text(L("vod.empty.no_in_category"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
@@ -375,7 +426,7 @@ struct VODCategoryDetailView: View {
             .navigationTitle(category.name)
             .navigationBarTitleDisplayMode(.large)
             .toolbar(.hidden, for: .tabBar)
-            .searchable(text: $searchText, placement: .toolbar, prompt: "Film Ara...")
+            .searchable(text: $searchText, placement: .toolbar, prompt: L("vod.search_placeholder"))
             .onChange(of: searchText) { _, new in
                 debounceTask?.cancel()
                 debounceTask = Task {
@@ -426,7 +477,7 @@ struct VODCategoryContent: View {
                     Image(systemName: "film")
                         .font(.largeTitle)
                         .foregroundColor(.secondary)
-                    Text("Hiç film bulunamadı.")
+                    Text(L("vod.empty.no_movie"))
                         .foregroundColor(.secondary)
                     Spacer()
                 }

@@ -507,7 +507,7 @@ public final class MPVPlayer: ObservableObject {
       DispatchQueue.main.async { [weak self] in
         guard let self, !self.isDisposed else { return }
         if self.playbackFailureMessage != nil { return }
-        self.playbackFailureMessage = "Sunucu yanıt vermiyor."
+        self.playbackFailureMessage = L("playback.error.timeout")
       }
     }
     loadTimeoutWorkItem = item
@@ -599,14 +599,14 @@ public final class MPVPlayer: ObservableObject {
 
   private static func userFacingMessageFromLogLine(level: String, text: String) -> String {
     let t = text.lowercased()
-    if t.contains("403") || t.contains("forbidden") { return "Erişim reddedildi (403)." }
-    if t.contains("401") || t.contains("unauthorized") { return "Kimlik doğrulama gerekli (401)." }
-    if t.contains("404") || t.contains("not found") { return "Akış bulunamadı (404)." }
+    if t.contains("403") || t.contains("forbidden") { return L("playback.error.forbidden") }
+    if t.contains("401") || t.contains("unauthorized") { return L("playback.error.unauthorized") }
+    if t.contains("404") || t.contains("not found") { return L("playback.error.not_found") }
     if t.contains("timed out") || t.contains("timeout") {
-      return "Sunucu yanıt vermiyor."
+      return L("playback.error.timeout")
     }
-    if level == "fatal" { return "Oynatma başlatılamadı." }
-    return "Sunucuya veya akışa ulaşılamıyor."
+    if level == "fatal" { return L("playback.error.failed_to_start") }
+    return L("playback.error.cannot_reach")
   }
 
   fileprivate func handleEndFileEvent(_ end: mpv_event_end_file) {
@@ -631,15 +631,15 @@ public final class MPVPlayer: ObservableObject {
     // `mpv_error` (client.h), örn. MPV_ERROR_LOADING_FAILED = -13
     switch mpvErrorCode {
     case -13, -17, -20:
-      return "Sunucuya veya akışa ulaşılamıyor."
+      return L("playback.error.cannot_reach")
     case -18:
-      return "Bu içerik cihazda desteklenmiyor."
+      return L("playback.error.unsupported")
     case -16:
-      return "Oynatılabilir ses veya görüntü bulunamadı."
+      return L("playback.error.no_playable_stream")
     case -14, -15:
-      return "Ses veya görüntü çıkışı başlatılamadı."
+      return L("playback.error.output_init_failed")
     default:
-      return "Oynatma başlatılamadı. Ağ bağlantınızı kontrol edin."
+      return L("playback.error.failed_check_network")
     }
   }
 
@@ -912,7 +912,7 @@ extension MPVPlayer {
           completion(
             [],
             [],
-            [TrackMenuOption(id: -1, title: "Kapalı")],
+            [TrackMenuOption(id: -1, title: L("player.subtitle_off"))],
             -1,
             -1,
             -1
@@ -923,7 +923,7 @@ extension MPVPlayer {
 
       var video: [TrackMenuOption] = []
       var audio: [TrackMenuOption] = []
-      var subs: [TrackMenuOption] = [TrackMenuOption(id: -1, title: "Kapalı")]
+      var subs: [TrackMenuOption] = [TrackMenuOption(id: -1, title: L("player.subtitle_off"))]
       let count = MPVHelpers.getInt64Property(handle, name: "track-list/count") ?? 0
 
       for i in 0 ..< count {

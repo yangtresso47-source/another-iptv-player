@@ -11,21 +11,21 @@ enum SubtitleFontWeight: String, CaseIterable, Codable, Identifiable {
 
     var title: String {
         switch self {
-        case .thin: return "İnce"
-        case .normal: return "Normal"
-        case .medium: return "Orta"
-        case .bold: return "Kalın"
-        case .extraBold: return "Çok Kalın"
+        case .thin: return L("style.weight.thin")
+        case .normal: return L("style.weight.normal")
+        case .medium: return L("style.weight.medium")
+        case .bold: return L("style.weight.bold")
+        case .extraBold: return L("style.weight.extra_bold")
         }
     }
 
     var shortLabel: String {
         switch self {
-        case .thin: return "İnce"
-        case .normal: return "Normal"
-        case .medium: return "Orta"
-        case .bold: return "Kalın"
-        case .extraBold: return "X-Kalın"
+        case .thin: return L("style.weight.thin")
+        case .normal: return L("style.weight.normal")
+        case .medium: return L("style.weight.medium")
+        case .bold: return L("style.weight.bold")
+        case .extraBold: return L("style.weight.extra_bold")
         }
     }
 
@@ -51,10 +51,10 @@ enum SubtitleTextAlignment: String, CaseIterable, Codable, Identifiable {
 
     var title: String {
         switch self {
-        case .left: return "Sol"
-        case .center: return "Orta"
-        case .right: return "Sağ"
-        case .justify: return "İki Yana Yasla"
+        case .left: return L("style.align.left")
+        case .center: return L("style.align.center")
+        case .right: return L("style.align.right")
+        case .justify: return L("style.align.justify")
         }
     }
 

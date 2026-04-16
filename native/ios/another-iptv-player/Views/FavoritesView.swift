@@ -29,10 +29,10 @@ struct FavoritesView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Tür", selection: $selectedType) {
-                Text("Canlı TV").tag("live")
-                Text("Filmler").tag("vod")
-                Text("Diziler").tag("series")
+            Picker(L("favorites.type"), selection: $selectedType) {
+                Text(L("dashboard.live")).tag("live")
+                Text(L("dashboard.movies")).tag("vod")
+                Text(L("dashboard.series")).tag("series")
             }
             .pickerStyle(.segmented)
             .padding()
@@ -48,7 +48,7 @@ struct FavoritesView: View {
                 }
             }
         }
-        .navigationTitle("Favoriler")
+        .navigationTitle(L("favorites.title"))
         .navigationBarTitleDisplayMode(.large)
     }
 
@@ -72,7 +72,7 @@ struct FavoritesView: View {
     @ViewBuilder
     private var liveGrid: some View {
         if favoriteLive.isEmpty {
-            emptyState(icon: "tv", message: "Henüz favori kanal eklemediniz.")
+            emptyState(icon: "tv", message: L("favorites.empty.live"))
         } else {
             ScrollView {
                 LazyVGrid(columns: gridColumns, spacing: posterMetrics.gridRowSpacing) {
@@ -97,7 +97,7 @@ struct FavoritesView: View {
     @ViewBuilder
     private var vodGrid: some View {
         if favoriteVODs.isEmpty {
-            emptyState(icon: "film", message: "Henüz favori film eklemediniz.")
+            emptyState(icon: "film", message: L("favorites.empty.movie"))
         } else {
             ScrollView {
                 LazyVGrid(columns: gridColumns, spacing: posterMetrics.gridRowSpacing) {
@@ -122,7 +122,7 @@ struct FavoritesView: View {
     @ViewBuilder
     private var seriesGrid: some View {
         if favoriteSeries.isEmpty {
-            emptyState(icon: "play.tv", message: "Henüz favori dizi eklemediniz.")
+            emptyState(icon: "play.tv", message: L("favorites.empty.series"))
         } else {
             ScrollView {
                 LazyVGrid(columns: gridColumns, spacing: posterMetrics.gridRowSpacing) {

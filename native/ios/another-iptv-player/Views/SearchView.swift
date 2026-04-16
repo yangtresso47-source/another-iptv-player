@@ -8,10 +8,16 @@ struct SearchView: View {
     @State private var selectedFilter: SearchFilter = .all
 
     enum SearchFilter: String, CaseIterable {
-        case all = "Tümü"
-        case live = "Canlı TV"
-        case movies = "Filmler"
-        case series = "Diziler"
+        case all, live, movies, series
+
+        var displayName: String {
+            switch self {
+            case .all:    return L("search.all")
+            case .live:   return L("dashboard.live")
+            case .movies: return L("dashboard.movies")
+            case .series: return L("dashboard.series")
+            }
+        }
     }
 
     var body: some View {
@@ -22,7 +28,7 @@ struct SearchView: View {
                         Button {
                             selectedFilter = filter
                         } label: {
-                            Text(filter.rawValue)
+                            Text(filter.displayName)
                                 .font(.subheadline)
                                 .fontWeight(selectedFilter == filter ? .semibold : .regular)
                                 .padding(.horizontal, 14)
@@ -45,7 +51,7 @@ struct SearchView: View {
                     .font(.system(size: 44))
                     .foregroundColor(.secondary.opacity(0.4))
                     .padding(.bottom, 8)
-                Text("En az 2 karakter girin")
+                Text(L("search.min_chars"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -58,7 +64,7 @@ struct SearchView: View {
                 )
             }
         }
-        .navigationTitle("Arama")
+        .navigationTitle(L("search.title"))
         .navigationBarTitleDisplayMode(.large)
         .onChange(of: searchText) { _, raw in
             debounceTask?.cancel()
@@ -102,9 +108,9 @@ private struct SearchResult {
     }
     var typeLabel: String {
         switch kind {
-        case .live: "Canlı TV"
-        case .movie: "Film"
-        case .series: "Dizi"
+        case .live: L("dashboard.live")
+        case .movie: L("stream.vod")
+        case .series: L("stream.series")
         }
     }
     var typeIcon: String {
@@ -155,11 +161,11 @@ private struct SearchResultsView: View {
                         }
                         if !allLiveShown && liveResults.count > 4 {
                             Button { onSelectFilter(.live) } label: {
-                                Text("\(liveResults.count - 4) sonuç daha")
+                                Text(L("search.more_results_format", liveResults.count - 4))
                                     .font(.footnote).foregroundColor(.accentColor)
                             }
                         }
-                    } header: { SectionLabel(title: "Canlı TV", count: liveResults.count, icon: "tv") }
+                    } header: { SectionLabel(title: L("dashboard.live"), count: liveResults.count, icon: "tv") }
                 }
             }
 
@@ -180,11 +186,11 @@ private struct SearchResultsView: View {
                         }
                         if !allMoviesShown && movieResults.count > 4 {
                             Button { onSelectFilter(.movies) } label: {
-                                Text("\(movieResults.count - 4) sonuç daha")
+                                Text(L("search.more_results_format", movieResults.count - 4))
                                     .font(.footnote).foregroundColor(.accentColor)
                             }
                         }
-                    } header: { SectionLabel(title: "Filmler", count: movieResults.count, icon: "film") }
+                    } header: { SectionLabel(title: L("dashboard.movies"), count: movieResults.count, icon: "film") }
                 }
             }
 
@@ -205,11 +211,11 @@ private struct SearchResultsView: View {
                         }
                         if !allSeriesShown && seriesResults.count > 4 {
                             Button { onSelectFilter(.series) } label: {
-                                Text("\(seriesResults.count - 4) sonuç daha")
+                                Text(L("search.more_results_format", seriesResults.count - 4))
                                     .font(.footnote).foregroundColor(.accentColor)
                             }
                         }
-                    } header: { SectionLabel(title: "Diziler", count: seriesResults.count, icon: "play.tv") }
+                    } header: { SectionLabel(title: L("dashboard.series"), count: seriesResults.count, icon: "play.tv") }
                 }
             }
 

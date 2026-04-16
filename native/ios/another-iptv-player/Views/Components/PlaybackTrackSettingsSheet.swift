@@ -9,35 +9,35 @@ struct PlaybackTrackSettingsSheet: View {
         NavigationStack {
             List {
                 trackSection(
-                    title: "Görüntü",
+                    title: L("player.tracks.video"),
                     items: player.videoTracks,
                     currentId: player.currentVideoTrackId,
-                    emptyLabel: "Görüntü parçası yok",
+                    emptyLabel: L("player.tracks.empty.video"),
                     select: { player.selectVideoTrack(id: $0) }
                 )
                 trackSection(
-                    title: "Ses",
+                    title: L("player.tracks.audio"),
                     items: player.audioTracks,
                     currentId: player.currentAudioTrackId,
-                    emptyLabel: "Ses parçası yok",
+                    emptyLabel: L("player.tracks.empty.audio"),
                     select: { player.selectAudioTrack(id: $0) }
                 )
                 trackSection(
-                    title: "Altyazı",
+                    title: L("player.tracks.subtitle"),
                     items: player.subtitleTracks,
                     currentId: player.currentSubtitleTrackId,
-                    emptyLabel: "Altyazı yok",
+                    emptyLabel: L("player.tracks.empty.subtitle"),
                     select: { player.selectSubtitleTrack(id: $0) }
                 )
-                Section("Geliştirici") {
-                    Toggle("Debug bilgilerini göster", isOn: $showDebugOverlay)
+                Section(L("player.dev_section")) {
+                    Toggle(L("player.show_debug_overlay"), isOn: $showDebugOverlay)
                 }
             }
-            .navigationTitle("Parça seçimi")
+            .navigationTitle(L("player.tracks.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Kapat") { dismiss() }
+                    Button(L("common.close")) { dismiss() }
                 }
             }
         }

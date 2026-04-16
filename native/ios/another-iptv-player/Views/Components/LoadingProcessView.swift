@@ -41,7 +41,7 @@ struct LoadingProcessView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                 
-                Text("Bu işlem internet hızınıza bağlı olarak bir süre alabilir.")
+                Text(L("loading.takes_time_hint"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -53,5 +53,5 @@ struct LoadingProcessView: View {
 }
 
 #Preview {
-    LoadingProcessView(message: "Kategoriler Hazırlanıyor...")
+    LoadingProcessView(message: "Preparing categories...")
 }

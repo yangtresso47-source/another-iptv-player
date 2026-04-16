@@ -127,7 +127,6 @@ struct DetailHero: View {
                     .foregroundStyle(.primary)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
-                    .shadow(color: .black.opacity(0.6), radius: 4, y: 1)
 
                 DetailHeroMetaRow(
                     year: config.year,
@@ -358,7 +357,7 @@ struct DetailPlotBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Özet")
+            Text(L("movie.plot"))
                 .font(.headline)
                 .foregroundStyle(.primary)
 

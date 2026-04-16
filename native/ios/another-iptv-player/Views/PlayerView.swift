@@ -40,6 +40,10 @@ struct PlayerView: View {
     var onSelectLiveChannel: ((DBLiveStream) -> Void)? = nil
     var onNavigateToDetail: ((String, String) -> Void)? = nil
 
+    /// Favori UI — nil ise buton gizli (Xtream şu an kullanmıyor).
+    var isFavorite: Bool? = nil
+    var onToggleFavorite: (() -> Void)? = nil
+
     @State private var channelBrowserVolumeBackup: Double?
 
     var body: some View {
@@ -55,6 +59,8 @@ struct PlayerView: View {
             seriesId: seriesId,
             resumeTimeMs: resumeTimeMs,
             containerExtension: containerExtension,
+            isFavorite: isFavorite,
+            onToggleFavorite: onToggleFavorite,
             canGoToPreviousEpisode: canGoToPreviousEpisode,
             canGoToNextEpisode: canGoToNextEpisode,
             onPreviousEpisode: onPreviousEpisode,
@@ -87,6 +93,10 @@ private struct PlayerViewImpl: View {
     var seriesId: String? = nil
     var resumeTimeMs: Int? = nil
     var containerExtension: String? = nil
+
+    /// Opsiyonel favori butonu — yalnız ikisi de set ise topChrome'da gösterilir.
+    var isFavorite: Bool? = nil
+    var onToggleFavorite: (() -> Void)? = nil
 
     /// Dizi oynatırken playlist sırasına göre önceki / sonraki bölüm (UI + Kontrol Merkezi).
     var canGoToPreviousEpisode: Bool = false
@@ -121,6 +131,9 @@ private struct PlayerViewImpl: View {
     @State private var hasInitialSeeked = false
     @AppStorage("player.debugOverlayEnabled") private var showDebugOverlay = false
     @AppStorage("player.videoAspectMode") private var videoAspectModeRaw = VideoAspectMode.bestFit.rawValue
+    @AppStorage("player.pipEnabled") private var pipEnabled = true
+    @AppStorage("player.continuePlayingInBackground") private var continuePlayingInBackground = true
+    @AppStorage("player.speedUpOnLongPress") private var speedUpOnLongPress = true
 
     @State private var isScrubbing = false
     @State private var scrubValue: Double = 0
@@ -131,7 +144,6 @@ private struct PlayerViewImpl: View {
     @State private var isFastForwarding = false
     @State private var pipManualSignal = 0
     @State private var bitrateSamples: [(time: Date, bps: Double)] = []
-    @State private var showLiveChannelBrowser = false
     @State private var aspectToastText: String?
     @State private var aspectToastToken: UInt64 = 0
 
@@ -244,16 +256,6 @@ private struct PlayerViewImpl: View {
 
     private var showVODQueueSkip: Bool {
         !isLiveStream && type == "vod" && (onPreviousChannel != nil || onNextChannel != nil)
-    }
-
-    private var showLiveChannelBrowserButton: Bool {
-        isLiveStream && !liveChannelQueue.isEmpty && onSelectLiveChannel != nil
-    }
-
-    private var effectiveLiveSections: [LiveChannelCategorySection] {
-        let cleaned = liveChannelSections.filter { !$0.streams.isEmpty }
-        if !cleaned.isEmpty { return cleaned }
-        return [LiveChannelCategorySection(id: "all", title: "Tüm Kanallar", streams: liveChannelQueue)]
     }
 
     private var hasPlaybackFailure: Bool {
@@ -511,26 +513,6 @@ private struct PlayerViewImpl: View {
         .onChange(of: player.videoBitrate) { _, newValue in
             appendBitrateSample(newValue)
         }
-        .fullScreenCover(isPresented: $showLiveChannelBrowser) {
-            NavigationStack {
-                LiveChannelBrowserScreen(
-                    sections: effectiveLiveSections,
-                    currentStreamId: currentLiveChannelStreamId,
-                    onSelectChannel: { stream in
-                        onSelectLiveChannel?(stream)
-                        showLiveChannelBrowser = false
-                    }
-                )
-            }
-        }
-        .onChange(of: showLiveChannelBrowser) { _, isOpen in
-            guard isLiveStream else { return }
-            if isOpen {
-                resetInteractiveDismissTracking()
-            } else {
-                onLiveChannelBrowserClosed()
-            }
-        }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -620,6 +602,7 @@ private struct PlayerViewImpl: View {
     }
 
     private func applySpeedHoldBegan() {
+        guard speedUpOnLongPress else { return }
         guard videoZoomScale <= 1.02, !isScrubbing else { return }
         resetTimer()
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
@@ -733,7 +716,7 @@ private struct PlayerViewImpl: View {
     ) -> some Gesture {
         DragGesture(minimumDistance: 22, coordinateSpace: .local)
             .onChanged { value in
-                if showTrackSettings || showSubtitleAppearance || showLiveChannelBrowser { return }
+                if showTrackSettings || showSubtitleAppearance { return }
                 if videoZoomScale > 1.02 || isScrubbing { return }
 
                 let start = value.startLocation
@@ -788,7 +771,7 @@ private struct PlayerViewImpl: View {
                 }
             }
             .onEnded { value in
-                if showTrackSettings || showSubtitleAppearance || showLiveChannelBrowser {
+                if showTrackSettings || showSubtitleAppearance {
                     resetInteractiveDismissTracking()
                     return
                 }
@@ -869,7 +852,9 @@ private struct PlayerViewImpl: View {
                     MPVPlayerPlaybackContainerView(
                         mpvPlayer: player.mpvEngine,
                         playbackBridge: player,
-                        manualPiPTrigger: pipManualSignal
+                        manualPiPTrigger: pipManualSignal,
+                        pipEnabled: pipEnabled,
+                        continuePlayingInBackground: continuePlayingInBackground
                     )
                     .id("MPVPlaybackPiP")
 
@@ -1069,7 +1054,7 @@ private struct PlayerViewImpl: View {
                     .padding(.bottom, (showControls ? 92 : 12) + geo.safeAreaInsets.bottom)
                     .allowsHitTesting(false)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Oynatma hatası")
+                    .accessibilityLabel(L("player.playback_error"))
                     .accessibilityValue(msg)
                     .zIndex(25)
                 }
@@ -1215,13 +1200,20 @@ private struct PlayerViewImpl: View {
             }
 
             HStack(spacing: 2) {
+                if let isFav = isFavorite, let toggle = onToggleFavorite {
+                    groupedCapsuleButton(systemName: isFav ? "star.fill" : "star") {
+                        toggle()
+                    }
+                    .accessibilityLabel(isFav ? L("favorites.remove") : L("favorites.add"))
+                }
+
                 groupedCapsuleButton(systemName: selectedAspectMode.iconName) {
                     resetVideoTransformForAspectSwitch()
                     videoAspectModeRaw = nextAspectMode.rawValue
                 }
                 .accessibilityLabel(selectedAspectMode.accessibilityLabel)
 
-                if AVPictureInPictureController.isPictureInPictureSupported() {
+                if AVPictureInPictureController.isPictureInPictureSupported() && pipEnabled {
                     groupedCapsuleButton(systemName: "pip") {
                         guard canEnterPiPNow else { return }
                         pipManualSignal += 1
@@ -1357,28 +1349,20 @@ private struct PlayerViewImpl: View {
     /// Bölüm atlama ayrı; zaman çubuğu yalnızca `scrubTimelineCard` içinde.
     private var bottomTransportChrome: some View {
         VStack(alignment: .trailing, spacing: 10) {
-            if showLiveChannelSkip || showLiveChannelBrowserButton {
+            if showLiveChannelSkip {
                 HStack(spacing: 8) {
                     Spacer(minLength: 0)
-                    if showLiveChannelSkip {
-                        glassIconButton(systemName: "chevron.left.circle.fill", size: 44, symbolSize: 17) {
-                            onPreviousChannel?()
-                        }
-                        .disabled(!canGoToPreviousChannel)
-                        .opacity(canGoToPreviousChannel ? 1 : 0.38)
-
-                        glassIconButton(systemName: "chevron.right.circle.fill", size: 44, symbolSize: 17) {
-                            onNextChannel?()
-                        }
-                        .disabled(!canGoToNextChannel)
-                        .opacity(canGoToNextChannel ? 1 : 0.38)
+                    glassIconButton(systemName: "chevron.left.circle.fill", size: 44, symbolSize: 17) {
+                        onPreviousChannel?()
                     }
+                    .disabled(!canGoToPreviousChannel)
+                    .opacity(canGoToPreviousChannel ? 1 : 0.38)
 
-                    if showLiveChannelBrowserButton {
-                        glassIconButton(systemName: "list.bullet.rectangle.portrait", size: 44, symbolSize: 17) {
-                            showLiveChannelBrowser = true
-                        }
+                    glassIconButton(systemName: "chevron.right.circle.fill", size: 44, symbolSize: 17) {
+                        onNextChannel?()
                     }
+                    .disabled(!canGoToNextChannel)
+                    .opacity(canGoToNextChannel ? 1 : 0.38)
                 }
                 .padding(.horizontal, 12)
             }
@@ -1475,7 +1459,7 @@ private struct PlayerViewImpl: View {
     }
 
     private var totalDurationLabel: String {
-        if isLiveStream { return "CANLI" }
+        if isLiveStream { return L("player.live_badge") }
         if player.durationMs > 500 { return formatMs(Int(player.durationMs)) }
         return "--:--"
     }
@@ -1750,7 +1734,7 @@ struct LiveChannelBrowserScreen: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 if isCurrent {
-                    Text("Yayında")
+                    Text(L("player.live_on_air"))
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)

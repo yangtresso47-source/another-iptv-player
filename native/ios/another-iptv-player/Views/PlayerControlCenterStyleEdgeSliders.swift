@@ -23,7 +23,7 @@ struct PlayerControlCenterStyleEdgeSliders: View {
           set: { player.setScreenBrightness(CGFloat($0)) }
         ),
         symbolName: "sun.max.fill",
-        accessibilityLabel: "Parlaklık",
+        accessibilityLabel: L("player.brightness"),
         accessibilityValueFormat: { "\(Int(round($0 * 100)))%" },
         trackWidth: trackWidth,
         trackHeight: trackHeight,
@@ -38,7 +38,7 @@ struct PlayerControlCenterStyleEdgeSliders: View {
           set: { systemVolume.setOutputVolume(Float($0)) }
         ),
         symbolName: volumeSymbolName,
-        accessibilityLabel: "Ses",
+        accessibilityLabel: L("player.volume"),
         accessibilityValueFormat: { "\(Int(round($0 * 100)))%" },
         trackWidth: trackWidth,
         trackHeight: trackHeight,

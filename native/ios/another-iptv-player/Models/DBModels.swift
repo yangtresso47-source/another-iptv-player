@@ -112,6 +112,30 @@ struct DBEpisode: Identifiable, Codable, FetchableRecord, PersistableRecord, Equ
     static let databaseTableName = "episode"
 }
 
+struct DBM3UFavorite: Codable, FetchableRecord, PersistableRecord, Equatable, Sendable {
+    var channelId: String
+    var playlistId: UUID
+    var createdAt: Date = Date()
+
+    static let databaseTableName = "m3uFavorite"
+}
+
+struct DBM3UChannel: Identifiable, Codable, FetchableRecord, PersistableRecord, Equatable, Hashable, Sendable {
+    var id: String
+    var playlistId: UUID
+    var name: String
+    var url: String
+    var tvgId: String?
+    var tvgName: String?
+    var tvgLogo: String?
+    var tvgCountry: String?
+    var groupTitle: String?
+    var userAgent: String?
+    var sortIndex: Int = 0
+
+    static let databaseTableName = "m3uChannel"
+}
+
 struct DBFavorite: Codable, FetchableRecord, PersistableRecord, Equatable {
     var streamId: Int
     var playlistId: UUID
